@@ -1,0 +1,446 @@
+diff --git a/src/vs/platform/agentHost/node/copilot/copilotSandboxPolicyDisplay.ts b/src/vs/platform/agentHost/node/copilot/copilotSandboxPolicyDisplay.ts
+deleted file mode 100644
+--- a/src/vs/platform/agentHost/node/copilot/copilotSandboxPolicyDisplay.ts
++++ /dev/null
+@@ -1,107 +0,0 @@
+-/*---------------------------------------------------------------------------------------------
+- *  Copyright (c) Microsoft Corporation. All rights reserved.
+- *  Licensed under the MIT License. See License.txt in the project root for license information.
+- *--------------------------------------------------------------------------------------------*/
+-
+-import { VSBuffer } from '../../../../base/common/buffer.js';
+-import { appendEscapedMarkdownInlineCode, escapeMarkdownSyntaxTokens, MarkdownString } from '../../../../base/common/htmlContent.js';
+-import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
+-import { URI } from '../../../../base/common/uri.js';
+-import { generateUuid } from '../../../../base/common/uuid.js';
+-import { localize } from '../../../../nls.js';
+-import { IFileService } from '../../../files/common/files.js';
+-import { ILogService } from '../../../log/common/log.js';
+-import { ISessionDataService } from '../../common/sessionDataService.js';
+-import type { CopilotSlashCommandInvocation, CopilotSlashCommandOutput, CopilotSlashCommandResult, ICopilotSlashCommandHandler, RuntimeSlashCommandInfo } from './copilotSlashCommand.js';
+-
+-export const copilotSandboxPolicyCommand: RuntimeSlashCommandInfo = {
+-	name: 'sandbox-policy',
+-	description: localize('copilotSlashCommand.sandboxPolicy', "Show the effective sandbox policy for this session"),
+-	kind: 'builtin',
+-	allowDuringAgentExecution: true,
+-};
+-
+-export class CopilotSandboxPolicyDisplay {
+-	constructor(
+-		private readonly _sessionId: string,
+-		private readonly _storageUri: URI,
+-		@IFileService private readonly _fileService: IFileService,
+-		@ILogService private readonly _logService: ILogService,
+-		@ISessionDataService private readonly _sessionDataService: ISessionDataService,
+-	) { }
+-
+-	getHandler(command: RuntimeSlashCommandInfo): ICopilotSlashCommandHandler | undefined {
+-		if (command.kind !== 'builtin' || (command.name !== copilotSandboxPolicyCommand.name && command.name !== 'sandbox')) {
+-			return undefined;
+-		}
+-		return {
+-			getInvocation: command.name === copilotSandboxPolicyCommand.name ? input => this.getInvocation(input) : undefined,
+-			getOutput: (input, result) => command.name === copilotSandboxPolicyCommand.name || input === 'policy' ? this.getOutput(result) : undefined,
+-		};
+-	}
+-
+-	private getInvocation(input: string): CopilotSlashCommandInvocation {
+-		if (input.trim().length > 0) {
+-			throw new Error(localize('copilotSlashCommand.sandboxPolicyNoArguments', "The /sandbox-policy command does not accept arguments."));
+-		}
+-		return { name: 'sandbox', input: 'policy' };
+-	}
+-
+-	private async getOutput(result: CopilotSlashCommandResult): Promise<CopilotSlashCommandOutput> {
+-		const text = result.kind === 'text' ? result.text : result.kind === 'completed' ? result.message : undefined;
+-		if (!text?.trim()) {
+-			throw new Error(localize('copilotSlashCommand.sandboxPolicyUnavailable', "The SDK did not return a sandbox policy."));
+-		}
+-		const markdown = formatSandboxPolicyMarkdown(text, result.kind !== 'text' || result.markdown === true);
+-		const resource = URI.joinPath(this._sessionDataService.getSessionDataDir(this._storageUri), 'diagnostics', generateUuid(), 'sandbox-policy.md');
+-		try {
+-			await this._fileService.writeFile(resource, VSBuffer.fromString(markdown));
+-		} catch (err) {
+-			this._logService.error(err, `[Copilot:${this._sessionId}] Failed to write sandbox policy`);
+-			throw err;
+-		}
+-		return {
+-			kind: 'link',
+-			resource,
+-			label: localize('copilotSlashCommand.openSandboxPolicy', "Open Sandbox Policy"),
+-			preview: true,
+-		};
+-	}
+-}
+-
+-/** Formats the SDK's terminal policy report for display without interpreting its policy rules. */
+-function formatSandboxPolicyMarkdown(text: string, markdown: boolean): string {
+-	const cleanText = removeAnsiEscapeCodes(text);
+-	if (markdown) {
+-		return cleanText;
+-	}
+-
+-	const titlePrefix = 'Effective sandbox policy for ';
+-	if (!cleanText.startsWith(titlePrefix)) {
+-		return new MarkdownString().appendCodeblock('text', cleanText).value;
+-	}
+-
+-	const [title, ...lines] = cleanText.trimEnd().split(/\r?\n/);
+-	const output = [
+-		`# ${localize('copilotSandboxPolicy.title', "Effective sandbox policy")}`,
+-		'',
+-		appendEscapedMarkdownInlineCode(title.slice(titlePrefix.length)),
+-		'',
+-	];
+-	for (const line of lines) {
+-		const content = line.trim();
+-		if (!content) {
+-			output.push('');
+-		} else if (line.startsWith('    ')) {
+-			output.push(`- ${appendEscapedMarkdownInlineCode(content)}`);
+-		} else if (content.endsWith(':')) {
+-			const heading = line.startsWith('  ') ? '###' : '##';
+-			output.push('', `${heading} ${escapeMarkdownSyntaxTokens(content.slice(0, -1))}`, '');
+-		} else if (line.startsWith('  ')) {
+-			output.push(`- ${escapeMarkdownSyntaxTokens(content.replace(/^- /, ''))}`);
+-		} else {
+-			output.push('', escapeMarkdownSyntaxTokens(content), '');
+-		}
+-	}
+-	return output.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+-}
+diff --git a/src/vs/platform/agentHost/node/copilot/copilotSdkMeta.ts b/src/vs/platform/agentHost/node/copilot/copilotSdkMeta.ts
+deleted file mode 100644
+--- a/src/vs/platform/agentHost/node/copilot/copilotSdkMeta.ts
++++ /dev/null
+@@ -1,11 +0,0 @@
+-/*---------------------------------------------------------------------------------------------
+- *  Copyright (c) Microsoft Corporation. All rights reserved.
+- *  Licensed under the MIT License. See License.txt in the project root for license information.
+- *--------------------------------------------------------------------------------------------*/
+-
+-import type { ToolExecutionStartToolDescription } from '@github/copilot-sdk';
+-
+-/** Reads the Copilot SDK's typed MCP Apps resource metadata. */
+-export function getCopilotSdkToolResourceUri(toolDescription: ToolExecutionStartToolDescription | undefined): string | undefined {
+-	return toolDescription?._meta?.ui?.resourceUri;
+-}
+diff --git a/src/vs/platform/agentHost/node/copilot/copilotSecondaryAssignmentContext.ts b/src/vs/platform/agentHost/node/copilot/copilotSecondaryAssignmentContext.ts
+deleted file mode 100644
+--- a/src/vs/platform/agentHost/node/copilot/copilotSecondaryAssignmentContext.ts
++++ /dev/null
+@@ -1,31 +0,0 @@
+-/*---------------------------------------------------------------------------------------------
+- *  Copyright (c) Microsoft Corporation. All rights reserved.
+- *  Licensed under the MIT License. See License.txt in the project root for license information.
+- *--------------------------------------------------------------------------------------------*/
+-
+-import type { GitHubTelemetryNotification } from '@github/copilot-sdk';
+-import { isValidAssignmentContext } from '../../../telemetry/common/assignmentContext.js';
+-import { ITelemetryService } from '../../../telemetry/common/telemetry.js';
+-
+-const SECONDARY_ASSIGNMENT_CONTEXT_PROPERTY = 'secondary.assignmentcontext';
+-
+-// __GDPR__COMMON__ "secondary.assignmentcontext" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "comment": "Secondary experiment assignment context assigned by CAPI during Copilot model calls." }
+-
+-export class CopilotSecondaryAssignmentContext {
+-
+-	private _value: string | undefined;
+-
+-	constructor(
+-		@ITelemetryService private readonly _telemetryService: ITelemetryService,
+-	) { }
+-
+-	update(notification: GitHubTelemetryNotification): void {
+-		const value = notification.event.properties.secondary_assignment_context;
+-		if (!value || value === this._value || !isValidAssignmentContext(value)) {
+-			return;
+-		}
+-
+-		this._telemetryService.setExperimentProperty(SECONDARY_ASSIGNMENT_CONTEXT_PROPERTY, value);
+-		this._value = value;
+-	}
+-}
+diff --git a/src/vs/platform/agentHost/node/copilot/prompts/promptOverride.ts b/src/vs/platform/agentHost/node/copilot/prompts/promptOverride.ts
+deleted file mode 100644
+--- a/src/vs/platform/agentHost/node/copilot/prompts/promptOverride.ts
++++ /dev/null
+@@ -1,133 +0,0 @@
+-/*---------------------------------------------------------------------------------------------
+- *  Copyright (c) Microsoft Corporation. All rights reserved.
+- *  Licensed under the MIT License. See License.txt in the project root for license information.
+- *--------------------------------------------------------------------------------------------*/
+-
+-import type { Tool } from '@github/copilot-sdk';
+-import { URI } from '../../../../../base/common/uri.js';
+-import { parse as parseYaml, type YamlMapNode, type YamlNode, type YamlParseError } from '../../../../../base/common/yaml.js';
+-import type { IFileService } from '../../../../files/common/files.js';
+-import type { ILogService } from '../../../../log/common/log.js';
+-
+-interface IPromptOverrideConfig {
+-	readonly systemPrompt?: string;
+-	readonly toolDescriptions?: Readonly<Record<string, { readonly description: string }>>;
+-}
+-
+-export interface IPromptOverrideResult {
+-	readonly systemPrompt?: string;
+-	readonly tools: Tool[];
+-}
+-
+-const INLINE_PROMPT_OVERRIDE_SOURCE = 'inlinePromptOverrideString';
+-const warnedSources = new Set<string>();
+-
+-export async function applyConfiguredPromptOverrides(
+-	inlinePromptOverride: string | undefined,
+-	promptOverrideFile: string | undefined,
+-	tools: readonly Tool[],
+-	fileService: IFileService,
+-	logService: ILogService,
+-): Promise<IPromptOverrideResult> {
+-	const normalizedInlinePromptOverride = inlinePromptOverride?.trim();
+-	const normalizedPromptOverrideFile = promptOverrideFile?.trim();
+-
+-	if (normalizedInlinePromptOverride) {
+-		if (normalizedPromptOverrideFile) {
+-			logService.trace('[PromptOverride] Both inline prompt override text and prompt override file are configured; using inline prompt override text');
+-		}
+-		return applyPromptOverridesFromString(normalizedInlinePromptOverride, tools, logService);
+-	}
+-
+-	if (!normalizedPromptOverrideFile) {
+-		return { tools: [...tools] };
+-	}
+-
+-	const source = URI.file(normalizedPromptOverrideFile);
+-	let content: string;
+-	try {
+-		content = (await fileService.readFile(source)).value.toString();
+-	} catch (error) {
+-		logPromptOverrideFailure(logService, source.toString(), `Failed to read prompt override file "${source.toString()}"`, error);
+-		return { tools: [...tools] };
+-	}
+-	return applyPromptOverridesFromString(content, tools, logService, source.toString());
+-}
+-
+-export function applyPromptOverridesFromString(
+-	content: string,
+-	tools: readonly Tool[],
+-	logService: ILogService,
+-	source = INLINE_PROMPT_OVERRIDE_SOURCE,
+-): IPromptOverrideResult {
+-	const config = parsePromptOverrideConfig(content, source, logService);
+-	if (!config) {
+-		return { tools: [...tools] };
+-	}
+-
+-	if (config.systemPrompt !== undefined) {
+-		logService.trace('[PromptOverride] Applied system prompt override');
+-	}
+-	const overriddenTools = tools.map(tool => {
+-		const description = config.toolDescriptions?.[tool.name]?.description;
+-		return description === undefined ? tool : { ...tool, description };
+-	});
+-	if (config.toolDescriptions) {
+-		logService.trace('[PromptOverride] Applied tool description overrides');
+-	}
+-	return {
+-		...(config.systemPrompt !== undefined ? { systemPrompt: config.systemPrompt } : {}),
+-		tools: overriddenTools,
+-	};
+-}
+-
+-function parsePromptOverrideConfig(content: string, source: string, logService: ILogService): IPromptOverrideConfig | undefined {
+-	const errors: YamlParseError[] = [];
+-	const document = parseYaml(content.replace(/^\uFEFF/, ''), errors);
+-	const fatalError = errors.find(error => error.code !== 'missing-value');
+-	if (fatalError) {
+-		logPromptOverrideFailure(logService, source, `Failed to parse prompt override from "${source}"`, fatalError.message);
+-		return undefined;
+-	}
+-	warnedSources.delete(source);
+-	if (document?.type !== 'map') {
+-		return undefined;
+-	}
+-
+-	const systemPrompt = getStringProperty(document, 'systemPrompt');
+-	const toolDescriptionsNode = getProperty(document, 'toolDescriptions');
+-	const toolDescriptions: Record<string, { description: string }> = {};
+-	if (toolDescriptionsNode?.type === 'map') {
+-		for (const toolProperty of toolDescriptionsNode.properties) {
+-			if (toolProperty.value.type !== 'map') {
+-				continue;
+-			}
+-			const description = getStringProperty(toolProperty.value, 'description');
+-			if (description !== undefined) {
+-				toolDescriptions[toolProperty.key.value] = { description };
+-			}
+-		}
+-	}
+-	return {
+-		...(systemPrompt !== undefined ? { systemPrompt } : {}),
+-		...(toolDescriptionsNode?.type === 'map' ? { toolDescriptions } : {}),
+-	};
+-}
+-
+-function getProperty(map: YamlMapNode, name: string): YamlNode | undefined {
+-	return map.properties.find(property => property.key.value === name)?.value;
+-}
+-
+-function getStringProperty(map: YamlMapNode, name: string): string | undefined {
+-	const value = getProperty(map, name);
+-	return value?.type === 'scalar' && value.value.length > 0 ? value.value : undefined;
+-}
+-
+-function logPromptOverrideFailure(logService: ILogService, source: string, message: string, error: unknown): void {
+-	if (warnedSources.has(source)) {
+-		logService.trace(`[PromptOverride] ${message}: ${error}`);
+-	} else {
+-		warnedSources.add(source);
+-		logService.warn(`[PromptOverride] ${message}: ${error}`);
+-	}
+-}
+diff --git a/src/vs/platform/agentHost/test/node/agentHostPromptOverride.test.ts b/src/vs/platform/agentHost/test/node/agentHostPromptOverride.test.ts
+deleted file mode 100644
+--- a/src/vs/platform/agentHost/test/node/agentHostPromptOverride.test.ts
++++ /dev/null
+@@ -1,76 +0,0 @@
+-/*---------------------------------------------------------------------------------------------
+- *  Copyright (c) Microsoft Corporation. All rights reserved.
+- *  Licensed under the MIT License. See License.txt in the project root for license information.
+- *--------------------------------------------------------------------------------------------*/
+-
+-import type { Tool } from '@github/copilot-sdk';
+-import assert from 'assert';
+-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+-import { FileService } from '../../../files/common/fileService.js';
+-import { NullLogService } from '../../../log/common/log.js';
+-import { applyConfiguredPromptOverrides } from '../../node/copilot/prompts/promptOverride.js';
+-
+-suite('AgentHostPromptOverride', () => {
+-
+-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+-
+-	test('inline YAML overrides the system prompt and tool descriptions and takes precedence over a file', async () => {
+-		const logService = new NullLogService();
+-		const fileService = disposables.add(new FileService(logService));
+-		const tools: Tool[] = [
+-			{ name: 'read_file', description: 'Read a file' },
+-			{ name: 'run_tests', description: 'Run tests' },
+-		];
+-		const result = await applyConfiguredPromptOverrides([
+-			'systemPrompt: You are an evaluation agent.',
+-			'toolDescriptions:',
+-			'  read_file:',
+-			'    description: Read exactly one file.',
+-		].join('\n'), '/path/that/must/not/be/read.yaml', tools, fileService, logService);
+-
+-		assert.deepStrictEqual(result, {
+-			systemPrompt: 'You are an evaluation agent.',
+-			tools: [
+-				{ name: 'read_file', description: 'Read exactly one file.' },
+-				{ name: 'run_tests', description: 'Run tests' },
+-			],
+-		});
+-	});
+-
+-	test('applies BOM-prefixed overrides and ignores empty values', async () => {
+-		const logService = new NullLogService();
+-		const fileService = disposables.add(new FileService(logService));
+-		const tools: Tool[] = [
+-			{ name: 'date_prefixed', description: 'original' },
+-			{ name: 'null_description', description: 'original' },
+-			{ name: 'quoted_empty_description', description: 'original' },
+-		];
+-		const result = await applyConfiguredPromptOverrides('\uFEFF' + [
+-			'systemPrompt: 2024-01-02 evaluation agent',
+-			'toolDescriptions:',
+-			'  date_prefixed:',
+-			'    description: 2024-01-02 do exactly one thing',
+-			'  null_description:',
+-			'    description:',
+-			'  quoted_empty_description:',
+-			'    description: ""',
+-		].join('\n'), undefined, tools, fileService, logService);
+-
+-		assert.deepStrictEqual(result, {
+-			systemPrompt: '2024-01-02 evaluation agent',
+-			tools: [
+-				{ name: 'date_prefixed', description: '2024-01-02 do exactly one thing' },
+-				{ name: 'null_description', description: 'original' },
+-				{ name: 'quoted_empty_description', description: 'original' },
+-			],
+-		});
+-	});
+-
+-	test('ignores a quoted empty system prompt', async () => {
+-		const logService = new NullLogService();
+-		const fileService = disposables.add(new FileService(logService));
+-		const result = await applyConfiguredPromptOverrides('systemPrompt: ""', undefined, [], fileService, logService);
+-
+-		assert.deepStrictEqual(result, { tools: [] });
+-	});
+-});
+diff --git a/src/vs/platform/agentHost/test/node/copilotSecondaryAssignmentContext.test.ts b/src/vs/platform/agentHost/test/node/copilotSecondaryAssignmentContext.test.ts
+deleted file mode 100644
+--- a/src/vs/platform/agentHost/test/node/copilotSecondaryAssignmentContext.test.ts
++++ /dev/null
+@@ -1,58 +0,0 @@
+-/*---------------------------------------------------------------------------------------------
+- *  Copyright (c) Microsoft Corporation. All rights reserved.
+- *  Licensed under the MIT License. See License.txt in the project root for license information.
+- *--------------------------------------------------------------------------------------------*/
+-
+-import type { GitHubTelemetryNotification } from '@github/copilot-sdk';
+-import assert from 'assert';
+-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+-import { NullTelemetryServiceShape } from '../../../telemetry/common/telemetryUtils.js';
+-import { CopilotSecondaryAssignmentContext } from '../../node/copilot/copilotSecondaryAssignmentContext.js';
+-
+-class RecordingTelemetryService extends NullTelemetryServiceShape {
+-	readonly experimentProperties: Array<{ name: string; value: string }> = [];
+-
+-	override setExperimentProperty(name?: string, value?: string): void {
+-		this.experimentProperties.push({ name: name ?? '', value: value ?? '' });
+-	}
+-}
+-
+-suite('CopilotSecondaryAssignmentContext', () => {
+-	ensureNoDisposablesAreLeakedInTestSuite();
+-
+-	const notification = (secondaryAssignmentContext?: string): GitHubTelemetryNotification => ({
+-		sessionId: 'session',
+-		restricted: false,
+-		event: {
+-			kind: 'response.success',
+-			properties: { secondary_assignment_context: secondaryAssignmentContext },
+-			metrics: {},
+-		},
+-	});
+-
+-	test('sets the telemetry-wide secondary assignment context from forwarded notifications', () => {
+-		const telemetryService = new RecordingTelemetryService();
+-		const context = new CopilotSecondaryAssignmentContext(telemetryService);
+-
+-		context.update(notification('secondary:1'));
+-		context.update(notification('secondary:1'));
+-		context.update(notification('secondary:2'));
+-
+-		assert.deepStrictEqual(telemetryService.experimentProperties, [
+-			{ name: 'secondary.assignmentcontext', value: 'secondary:1' },
+-			{ name: 'secondary.assignmentcontext', value: 'secondary:2' },
+-		]);
+-	});
+-
+-	test('ignores a malformed secondary assignment context', () => {
+-		const telemetryService = new RecordingTelemetryService();
+-		const context = new CopilotSecondaryAssignmentContext(telemetryService);
+-
+-		context.update(notification('invalid'));
+-		context.update(notification('secondary:1'));
+-
+-		assert.deepStrictEqual(telemetryService.experimentProperties, [
+-			{ name: 'secondary.assignmentcontext', value: 'secondary:1' },
+-		]);
+-	});
+-});

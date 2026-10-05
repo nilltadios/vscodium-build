@@ -1,0 +1,13 @@
+diff --git a/src/vs/base/common/policy.ts b/src/vs/base/common/policy.ts
+index ffe87224..0913c961 100644
+--- a/src/vs/base/common/policy.ts
++++ b/src/vs/base/common/policy.ts
+@@ -9,7 +9,7 @@ import { IPolicyData } from './defaultAccount.js';
+ /**
+  * System-wide policy file path for Linux systems.
+  */
+-export const LINUX_SYSTEM_POLICY_FILE_PATH = '/etc/vscode/policy.json';
++export const LINUX_SYSTEM_POLICY_FILE_PATH = '/etc/vscodium/policy.json';
+ 
+ export type PolicyName = string;
+ export type LocalizedValue = {

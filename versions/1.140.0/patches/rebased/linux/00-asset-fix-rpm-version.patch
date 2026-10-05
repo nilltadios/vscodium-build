@@ -1,0 +1,19 @@
+diff --git a/resources/linux/rpm/code.spec.template b/resources/linux/rpm/code.spec.template
+index d73f389f..451ba81f 100644
+--- a/resources/linux/rpm/code.spec.template
++++ b/resources/linux/rpm/code.spec.template
+@@ -1,6 +1,6 @@
+ Name:     @@NAME@@
+ Version:  @@VERSION@@
+-Release:  @@RELEASE@@.el8
++Release:  el8
+ Summary:  Code editing. Redefined.
+ Group:    Development/Tools
+ Vendor:   Microsoft Corporation
+@@ -90,3 +90,5 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
+ %{_datadir}/pixmaps/@@ICON@@.png
+ %{_datadir}/bash-completion/completions/%{name}
+ %{_datadir}/zsh/site-functions/_%{name}
++
++%config(noreplace) /usr/share/%{name}/resources/app/product.json
+\ No newline at end of file

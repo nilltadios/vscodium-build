@@ -1,0 +1,13 @@
+diff --git a/src/vs/platform/update/common/update.config.contribution.ts b/src/vs/platform/update/common/update.config.contribution.ts
+index f00f77df..86f7f723 100644
+--- a/src/vs/platform/update/common/update.config.contribution.ts
++++ b/src/vs/platform/update/common/update.config.contribution.ts
+@@ -19,7 +19,7 @@ configurationRegistry.registerConfiguration({
+ 		'update.mode': {
+ 			type: 'string',
+ 			enum: ['none', 'manual', 'start', 'default'],
+-			default: 'default',
++			default: 'none',
+ 			scope: ConfigurationScope.APPLICATION,
+ 			description: localize('updateMode', "Configure whether you receive automatic updates. The updates are fetched from a Microsoft online service."),
+ 			tags: ['usesOnlineServices'],

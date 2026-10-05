@@ -1,0 +1,121 @@
+diff --git a/src/vs/workbench/contrib/extensions/electron-browser/extensionsSlowActions.ts b/src/vs/workbench/contrib/extensions/electron-browser/extensionsSlowActions.ts
+index 77c1661c..9787b810 100644
+--- a/src/vs/workbench/contrib/extensions/electron-browser/extensionsSlowActions.ts
++++ b/src/vs/workbench/contrib/extensions/electron-browser/extensionsSlowActions.ts
+@@ -151,7 +151,7 @@ class ReportExtensionSlowAction extends Action {
+ - Extension Name: \`${this.extension.name}\`
+ - Extension Version: \`${this.extension.version}\`
+ - OS Version: \`${osVersion}\`
+-- VS Code version: \`${this._productService.version}\`\n\n${message}`);
++- VSCodium version: \`${this._productService.version}\`\n\n${message}`);
+ 
+ 		const url = `${this.repoInfo.base}/${this.repoInfo.owner}/${this.repoInfo.repo}/issues/new/?body=${body}&title=${title}`;
+ 		this._openerService.open(URI.parse(url));
+diff --git a/src/vs/workbench/contrib/issue/browser/baseIssueReporterService.ts b/src/vs/workbench/contrib/issue/browser/baseIssueReporterService.ts
+index 44e0b933..ba7ec2de 100644
+--- a/src/vs/workbench/contrib/issue/browser/baseIssueReporterService.ts
++++ b/src/vs/workbench/contrib/issue/browser/baseIssueReporterService.ts
+@@ -853,7 +853,7 @@ export class BaseIssueReporterService extends Disposable {
+ 
+ 	public searchVSCodeIssues(title: string, issueDescription?: string): void {
+ 		if (title) {
+-			this.searchDuplicates(title, issueDescription);
++			this.searchGitHub('VSCodium/vscodium', title);
+ 		} else {
+ 			this.clearSearchResults();
+ 		}
+@@ -932,37 +932,6 @@ export class BaseIssueReporterService extends Disposable {
+ 		});
+ 	}
+ 
+-	@debounce(300)
+-	private searchDuplicates(title: string, body?: string): void {
+-		const url = 'https://vscode-probot.westus.cloudapp.azure.com:7890/duplicate_candidates';
+-		const init = {
+-			method: 'POST',
+-			body: JSON.stringify({
+-				title,
+-				body
+-			}),
+-			headers: new Headers({
+-				'Content-Type': 'application/json'
+-			})
+-		};
+-
+-		fetch(url, init).then((response) => {
+-			response.json().then(result => {
+-				this.clearSearchResults();
+-
+-				if (result && result.candidates) {
+-					this.displaySearchResults(result.candidates);
+-				} else {
+-					throw new Error('Unexpected response, no candidates property');
+-				}
+-			}).catch(_ => {
+-				// Ignore
+-			});
+-		}).catch(_ => {
+-			// Ignore
+-		});
+-	}
+-
+ 	private displaySearchResults(results: SearchResult[]) {
+ 		// eslint-disable-next-line no-restricted-syntax
+ 		const similarIssues = this.getElementById('similar-issues')!;
+@@ -1053,8 +1022,8 @@ export class BaseIssueReporterService extends Disposable {
+ 
+ 		sourceSelect.innerText = '';
+ 		sourceSelect.append(this.makeOption('', localize('selectSource', "Select source"), true));
+-		sourceSelect.append(this.makeOption(IssueSource.VSCode, localize('vscode', "Visual Studio Code"), false));
+-		sourceSelect.append(this.makeOption(IssueSource.Extension, localize('extension', "A VS Code extension"), false));
++		sourceSelect.append(this.makeOption(IssueSource.VSCode, localize('vscode', "VSCodium"), false));
++		sourceSelect.append(this.makeOption(IssueSource.Extension, localize('extension', "A VSCodium extension"), false));
+ 		if (this.product.reportMarketplaceIssueUrl) {
+ 			sourceSelect.append(this.makeOption(IssueSource.Marketplace, localize('marketplace', "Extensions Marketplace"), false));
+ 		}
+@@ -1157,7 +1126,7 @@ export class BaseIssueReporterService extends Disposable {
+ 		if (selectedExtension && this.nonGitHubIssueUrl) {
+ 			hide(titleTextArea);
+ 			hide(descriptionTextArea);
+-			reset(descriptionTitle, localize('handlesIssuesElsewhere', "This extension handles issues outside of VS Code"));
++			reset(descriptionTitle, localize('handlesIssuesElsewhere', "This extension handles issues outside of VSCodium"));
+ 			reset(descriptionSubtitle, localize('elsewhereDescription', "The '{0}' extension prefers to use an external issue reporter. To be taken to that issue reporting experience, click the button below.", selectedExtension.displayName));
+ 			this.publicGithubButton.label = localize('openIssueReporter', "Open External Issue Reporter");
+ 			return;
+diff --git a/src/vs/workbench/contrib/issue/browser/issueReporterModel.ts b/src/vs/workbench/contrib/issue/browser/issueReporterModel.ts
+index 72061543..ca2ca8da 100644
+--- a/src/vs/workbench/contrib/issue/browser/issueReporterModel.ts
++++ b/src/vs/workbench/contrib/issue/browser/issueReporterModel.ts
+@@ -97,7 +97,7 @@ Type: <b>${this.getIssueTypeTitle()}</b>
+ ${this._data.isSessionsWindow ? '\nWindow: Agents\n' : ''}
+ ${this._data.issueDescription}
+ ${this.getExtensionVersion()}
+-VS Code version: ${this._data.versionInfo && this._data.versionInfo.vscodeVersion}
++VSCodium version: ${this._data.versionInfo && this._data.versionInfo.vscodeVersion}
+ OS version: ${this._data.versionInfo && this._data.versionInfo.os}
+ Modes:${modes.length ? ' ' + modes.join(', ') : ''}
+ ${this.getRemoteOSes()}
+diff --git a/src/vs/workbench/contrib/issue/browser/issueReporterPage.ts b/src/vs/workbench/contrib/issue/browser/issueReporterPage.ts
+index 10fde69b..ad5e1bd3 100644
+--- a/src/vs/workbench/contrib/issue/browser/issueReporterPage.ts
++++ b/src/vs/workbench/contrib/issue/browser/issueReporterPage.ts
+@@ -12,16 +12,16 @@ const sendWorkspaceInfoLabel = escape(localize('sendWorkspaceInfo', "Include my
+ const sendExtensionsLabel = escape(localize('sendExtensions', "Include my enabled extensions"));
+ const sendExperimentsLabel = escape(localize('sendExperiments', "Include A/B experiment info"));
+ const sendExtensionData = escape(localize('sendExtensionData', "Include additional extension info"));
+-const acknowledgementsLabel = escape(localize('acknowledgements', "I acknowledge that my VS Code version is not updated and this issue may be closed."));
++const acknowledgementsLabel = escape(localize('acknowledgements', "I acknowledge that my VSCodium version is not updated and this issue may be closed."));
+ const reviewGuidanceLabel = localize( // intentionally not escaped because of its embedded tags
+ 	{
+ 		key: 'reviewGuidanceLabel',
+ 		comment: [
+-			'{Locked="<a href=\"https://github.com/microsoft/vscode/wiki/Submitting-Bugs-and-Suggestions\" target=\"_blank\">"}',
++			'{Locked="<a href=\"https://github.com/VSCodium/vscodium/wiki/Submitting-Bugs-and-Suggestions\" target=\"_blank\">"}',
+ 			'{Locked="</a>"}'
+ 		]
+ 	},
+-	'Before you report an issue here please <a href="https://github.com/microsoft/vscode/wiki/Submitting-Bugs-and-Suggestions" target="_blank">review the guidance we provide</a>. Please complete the form in English.'
++	'Before you report an issue here please <a href="https://github.com/VSCodium/vscodium/wiki/Submitting-Bugs-and-Suggestions" target="_blank">review the guidance we provide</a>. Please complete the form in English.'
+ );
+ 
+ export default (): string => `

@@ -1,0 +1,1168 @@
+diff --git a/build/gulpfile.reh.ts b/build/gulpfile.reh.ts
+index 0fa8460e..a17f85ef 100644
+--- a/build/gulpfile.reh.ts
++++ b/build/gulpfile.reh.ts
+@@ -23,7 +23,7 @@ import glob from 'glob';
+ import { promisify } from 'util';
+ import rceditCallback from 'rcedit';
+ import { compileApiProposalNamesTask, copyCodiconsTask } from './lib/compilation.ts';
+-import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask, compileCopilotExtensionBuildTask } from './gulpfile.extensions.ts';
++import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask } from './gulpfile.extensions.ts';
+ import * as cp from 'child_process';
+ import crypto from 'crypto';
+ import log from 'fancy-log';
+@@ -538,20 +538,10 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
+ 	};
+ }
+ 
+-function prepareCopilotRipgrepShimTaskREH(platform: string, arch: string, destinationFolderName: string) {
+-	return async () => {
+-		const outputDir = path.join(BUILD_ROOT, destinationFolderName);
+-		const nodeModulesDir = path.join(outputDir, 'node_modules');
+-
+-		const builtInCopilotExtensionDir = path.join(outputDir, 'extensions', 'copilot');
+-		prepareBuiltInCopilotRipgrepShim(platform, arch, builtInCopilotExtensionDir, nodeModulesDir);
+-	};
+-}
+-
+ ['reh', 'reh-web'].forEach(type => {
+ 	const target = type === 'reh' ? 'server' : 'server-web';
+ 	const esbuildBundleTask = task.define(`esbuild-vscode-${type}`, () => runEsbuildBundle(`out-vscode-${type}`, false, true, target));
+-	const esbuildBundleMinTask = task.define(`esbuild-vscode-${type}-min`, () => runEsbuildBundle(`out-vscode-${type}-min`, true, true, target, `https://main.vscode-cdn.net/sourcemaps/${commit}/core`));
++	const esbuildBundleMinTask = task.define(`esbuild-vscode-${type}-min`, () => runEsbuildBundle(`out-vscode-${type}-min`, true, true, target, `https://github.com/VSCodium/sourcemaps/releases/download/${product.quality}-${commit}/core`));
+ 
+ 	BUILD_TARGETS.forEach(buildTarget => {
+ 		const dashed = (str: string) => (str ? `-${str}` : ``);
+diff --git a/build/gulpfile.vscode.ts b/build/gulpfile.vscode.ts
+index e46257b5..a1e81a7f 100644
+--- a/build/gulpfile.vscode.ts
++++ b/build/gulpfile.vscode.ts
+@@ -24,9 +24,8 @@ import { getProductionDependencies } from './lib/dependencies.ts';
+ import { config } from './lib/electron.ts';
+ import { createAsar } from './lib/asar.ts';
+ import minimist from 'minimist';
+-import { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask, compileCopilotExtensionBuildTask } from './gulpfile.extensions.ts';
++import { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask } from './gulpfile.extensions.ts';
+ import { checkApiProposalNamesTask, copyCodiconsTask } from './lib/compilation.ts';
+-import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotRuntimeVersion, getCopilotTgrepExcludeFilter, getMxcExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
+ import { ensureOSProxyResolverPlatformPackage, getOSProxyResolverExcludeFilter, getOSProxyResolverPlatformFiles } from './lib/osProxyResolver.ts';
+ import { readAgentSdkResults } from './agent-sdk/common.ts';
+ import { readDictationRuntimeResults } from './dictation-runtime/common.ts';
+@@ -42,23 +41,6 @@ const glob = promisify(globCallback);
+ const rcedit = promisify(rceditCallback);
+ const root = path.dirname(import.meta.dirname);
+ const commit = getVersion(root);
+-const packageLock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8')) as {
+-	readonly packages?: Readonly<Record<string, { readonly version?: string }>>;
+-};
+-const copilotRuntimeVersion = getCopilotRuntimeVersion(path.join(root, 'node_modules'));
+-if (packageJson.copilotRuntimeVersion !== copilotRuntimeVersion) {
+-	throw new Error(`package.json declares Copilot runtime ${packageJson.copilotRuntimeVersion}, but @github/copilot-sdk bundles ${copilotRuntimeVersion}.`);
+-}
+-
+-function getLockedPackageVersion(packageName: string): string {
+-	const version = packageLock.packages?.[`node_modules/${packageName}`]?.version;
+-	if (!version) {
+-		throw new Error(`Package ${packageName} is missing a version in package-lock.json.`);
+-	}
+-
+-	return version;
+-}
+-
+ const sourceMappingURLBase = `https://github.com/VSCodium/sourcemaps/releases/download/${product.quality}-${commit}`;
+ const isCI = !!process.env['CI'] || !!process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'] || !!process.env['GITHUB_WORKSPACE'];
+ const useCdnSourceMapsForPackagingTasks = isCI;
+@@ -205,10 +187,6 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
+ 				json.date = readISODate(out);
+ 				json.checksums = checksums;
+ 				json.version = version;
+-				json.copilotVersions = {
+-					runtime: copilotRuntimeVersion,
+-					sdk: getLockedPackageVersion('@github/copilot-sdk'),
+-				};
+ 				// Stamp agentSdks from the per-platform results file produced
+ 				// by `build/agent-sdk/produce.ts` (an earlier pipeline step).
+ 				// Local dev: file absent → empty → not stamped.
+@@ -262,8 +240,6 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
+ 			.pipe(createAsar(path.join(process.cwd(), 'node_modules'), [
+ 				'**/*.node',
+ 				'**/@vscode/ripgrep-universal/bin/**',
+-				// The SDK runtime wrapper and native module must remain adjacent on disk.
+-				'**/@github/copilot-sdk-{darwin,linux,linuxmusl,win32}-*/**',
+ 				// The Dev Container CLI is spawned as an external Node process,
+ 				// so its bundled entrypoint must be available outside the ASAR.
+ 				'**/@devcontainers/cli/**',
+@@ -627,19 +603,19 @@ BUILD_TARGETS.forEach(buildTarget => {
+ 				minified && useCdnSourceMapsForPackagingTasks ? `${sourceMappingURLBase}/core` : undefined
+ 			)
+ 		);
+-		const vscodeTask = task.define(`vscode${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
++		const prepackTask = task.define(`vscode${dashed(minified)}-prepack`, task.series(
++			checkApiProposalNamesTask,
+ 			copyCodiconsTask,
+ 			cleanExtensionsBuildTask,
+ 			compileNonNativeExtensionsBuildTask,
+ 			compileExtensionMediaBuildTask,
+-			));
+-			task.task(prepackTask);
+-
+-			const packingTask = task.define(`vscode${dashed(platform)}${dashed(arch)}${dashed(minified)}-packing`, task.series(
+ 			writeISODate('out-build'),
+ 			esbuildBundleTask,
+-			vscodeTaskCI
+ 		));
++		task.task(prepackTask);
++		const packingTask = task.define(`vscode${dashed(platform)}${dashed(arch)}${dashed(minified)}-packing`, task.series(vscodeTaskCI));
++		task.task(packingTask);
++		const vscodeTask = task.define(`vscode${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(prepackTask, packingTask));
+ 		task.task(vscodeTask);
+ 
+ 		return vscodeTask;
+diff --git a/build/gulpfile.vscode.web.ts b/build/gulpfile.vscode.web.ts
+index 6afedb64..9b68bf0a 100644
+--- a/build/gulpfile.vscode.web.ts
++++ b/build/gulpfile.vscode.web.ts
+@@ -26,7 +26,7 @@ const commit = getVersion(REPO_ROOT);
+ const quality = (product as { quality?: string }).quality;
+ const version = (quality && quality !== 'stable') ? `${packageJson.version}-${quality}` : packageJson.version;
+ 
+-const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
++const sourceMappingURLBase = `https://github.com/VSCodium/sourcemaps/releases/download/${product.quality}-${commit}`;
+ const esbuildBundleVSCodeWebTask = task.define('esbuild-vscode-web', () => runEsbuildBundle('out-vscode-web', false, true, 'web'));
+ const esbuildBundleVSCodeWebMinTask = task.define('esbuild-vscode-web-min', () => runEsbuildBundle('out-vscode-web-min', true, true, 'web', `${sourceMappingURLBase}/core`));
+ 
+diff --git a/build/lib/electronVersion.ts b/build/lib/electronVersion.ts
+index 809d0667..85e354a9 100644
+--- a/build/lib/electronVersion.ts
++++ b/build/lib/electronVersion.ts
+@@ -9,8 +9,10 @@ import path from 'path';
+ const root = path.dirname(path.dirname(import.meta.dirname));
+ 
+ export function getElectronVersion(): Record<string, string> {
+-	const npmrc = fs.readFileSync(path.join(root, '.npmrc'), 'utf8');
+-	const electronVersion = /^target="(.*)"$/m.exec(npmrc)![1];
++	// VSCodium temporarily uses a host-Node npmrc while installing build tools.
++	const npmrcPath = path.join(root, fs.existsSync(path.join(root, '.npmrc.bak')) ? '.npmrc.bak' : '.npmrc');
++	const npmrc = fs.readFileSync(npmrcPath, 'utf8');
++	const electronVersion = process.env['VSCODE_ELECTRON_VERSION'] ?? /^target="(.*)"$/m.exec(npmrc)![1];
+ 	const msBuildId = /^ms_build_id="(.*)"$/m.exec(npmrc)![1];
+ 	return { electronVersion, msBuildId };
+ }
+diff --git a/build/linux/debian/install-sysroot.ts b/build/linux/debian/install-sysroot.ts
+index 16f34f27..616aef8f 100644
+--- a/build/linux/debian/install-sysroot.ts
++++ b/build/linux/debian/install-sysroot.ts
+@@ -71,7 +71,9 @@ function getVSCodeSysrootChecksum(expectedName: string) {
+  */
+ async function fetchUrl(options: IFetchOptions): Promise<void> {
+ 	const version = '20260212-405735';
+-	const releaseUrl = `https://api.github.com/repos/Microsoft/vscode-linux-build-agent/releases/tags/v${version}`;
++	const repository = process.env['VSCODE_SYSROOT_REPOSITORY'] ?? 'Microsoft/vscode-linux-build-agent';
++	const actualVersion = process.env['VSCODE_SYSROOT_VERSION'] ?? version;
++	const releaseUrl = `https://api.github.com/repos/${repository}/releases/tags/v${actualVersion}`;
+ 	const downloadOptions = {
+ 		attempts: 11,
+ 		onRetry: (error: Error) => console.log(`Fetching failed: ${error}`)
+diff --git a/build/package-lock.json b/build/package-lock.json
+index 6792135b..bfa965c3 100644
+--- a/build/package-lock.json
++++ b/build/package-lock.json
+@@ -1907,16 +1907,33 @@
+       }
+     },
+     "node_modules/@vscode/vsce/node_modules/brace-expansion": {
+-      "version": "5.0.7",
+-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.7.tgz",
+-      "integrity": "sha512-7oFy703dxfY3/NLxC1fh2SUCQ0H9rmAY+5EpDVfXjUTTs+HEwR2nYaqLv+GWcTsumwxPfiz6CzCNkwXwBUwqCA==",
++      "version": "5.0.9",
++      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.9.tgz",
++      "integrity": "sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==",
+       "extraneous": true,
+       "license": "MIT",
+       "dependencies": {
+         "balanced-match": "^4.0.2"
+       },
+       "engines": {
+-        "node": "18 || 20 || >=22"
++        "node": "20 || >=22"
++      }
++    },
++    "node_modules/@vscode/vsce/node_modules/chalk": {
++      "version": "4.1.2",
++      "resolved": "https://registry.npmjs.org/chalk/-/chalk-4.1.2.tgz",
++      "integrity": "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==",
++      "extraneous": true,
++      "license": "MIT",
++      "dependencies": {
++        "ansi-styles": "^4.1.0",
++        "supports-color": "^7.1.0"
++      },
++      "engines": {
++        "node": ">=10"
++      },
++      "funding": {
++        "url": "https://github.com/chalk/chalk?sponsor=1"
+       }
+     },
+     "node_modules/@vscode/vsce/node_modules/glob/node_modules/minimatch": {
+@@ -2007,10 +2024,10 @@
+         "node": "18 || 20 || >=22"
+       }
+     },
+-    "node_modules/@vscode/vsce/node_modules/brace-expansion": {
+-      "version": "5.0.9",
+-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.9.tgz",
+-      "integrity": "sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==",
++    "node_modules/@vscodium/vsce/node_modules/brace-expansion": {
++      "version": "5.0.12",
++      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.12.tgz",
++      "integrity": "sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+@@ -2020,7 +2037,7 @@
+         "node": "20 || >=22"
+       }
+     },
+-    "node_modules/@vscode/vsce/node_modules/chalk": {
++    "node_modules/@vscodium/vsce/node_modules/chalk": {
+       "version": "4.1.2",
+       "resolved": "https://registry.npmjs.org/chalk/-/chalk-4.1.2.tgz",
+       "integrity": "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==",
+@@ -5673,6 +5690,13 @@
+       "integrity": "sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g==",
+       "devOptional": true
+     },
++    "node_modules/safer-buffer": {
++      "version": "2.1.2",
++      "resolved": "https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz",
++      "integrity": "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/sax": {
+       "version": "1.6.1",
+       "resolved": "https://registry.npmjs.org/sax/-/sax-1.6.1.tgz",
+diff --git a/package-lock.json b/package-lock.json
+index d7d3f181..d8f2d48d 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -31,7 +31,6 @@
+         "@vscode/iconv-lite-umd": "0.7.1",
+         "@vscode/native-watchdog": "^1.4.6",
+         "@vscode/os-proxy-resolver": "^0.4.0",
+-        "@vscode/policy-watcher": "^1.4.0",
+         "@vscode/proxy-agent": "^0.45.0",
+         "@vscode/ripgrep-universal": "^1.18.0",
+         "@vscode/sandbox-runtime": "0.0.1",
+@@ -43,6 +42,8 @@
+         "@vscode/windows-mutex": "^0.5.0",
+         "@vscode/windows-process-tree": "^0.8.0",
+         "@vscode/windows-registry": "^1.2.0",
++        "@vscodium/native-keymap": "3.3.9-260952",
++        "@vscodium/policy-watcher": "1.4.0-265896",
+         "@xterm/addon-clipboard": "^0.3.0-beta.303",
+         "@xterm/addon-image": "^0.10.0-beta.301",
+         "@xterm/addon-ligatures": "^0.11.0-beta.301",
+@@ -2555,135 +2556,6 @@
+         "@octokit/openapi-types": "^25.1.0"
+       }
+     },
+-    "node_modules/@openai/codex": {
+-      "version": "0.153.0",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.153.0.tgz",
+-      "integrity": "sha512-k55kUZaclNi5ceUStSVuyW834ruA6AEdzTK7Xi3M1mOyXokUmq1sJLXm1RJ3XD2S7bRPeF1EXNsYB5Qxwus0mw==",
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "bin": {
+-        "codex": "bin/codex.js"
+-      },
+-      "engines": {
+-        "node": ">=16"
+-      },
+-      "optionalDependencies": {
+-        "@openai/codex-darwin-arm64": "npm:@openai/codex@0.153.0-darwin-arm64",
+-        "@openai/codex-darwin-x64": "npm:@openai/codex@0.153.0-darwin-x64",
+-        "@openai/codex-linux-arm64": "npm:@openai/codex@0.153.0-linux-arm64",
+-        "@openai/codex-linux-x64": "npm:@openai/codex@0.153.0-linux-x64",
+-        "@openai/codex-win32-arm64": "npm:@openai/codex@0.153.0-win32-arm64",
+-        "@openai/codex-win32-x64": "npm:@openai/codex@0.153.0-win32-x64"
+-      }
+-    },
+-    "node_modules/@openai/codex-darwin-arm64": {
+-      "name": "@openai/codex",
+-      "version": "0.153.0-darwin-arm64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.153.0-darwin-arm64.tgz",
+-      "integrity": "sha512-C9F3HVEYekVJC3WhiGSztcxItWBwd7Y6hTWoDqa9Z9aLWsYywzqChABB59n7G5F5jCil9wxW3+u2L6uiVUydmw==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "darwin"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+-    "node_modules/@openai/codex-darwin-x64": {
+-      "name": "@openai/codex",
+-      "version": "0.153.0-darwin-x64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.153.0-darwin-x64.tgz",
+-      "integrity": "sha512-DO5u+X/eL8pObrV0WDErOjS9DeuDvVuOL5oHR5y5Yklp0NGoGj3oOHsmaSXjGesiIiu3IX8l4pzS6dbeQXJAvQ==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "darwin"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+-    "node_modules/@openai/codex-linux-arm64": {
+-      "name": "@openai/codex",
+-      "version": "0.153.0-linux-arm64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.153.0-linux-arm64.tgz",
+-      "integrity": "sha512-N2zLgmuslhMoC2RFC2aDkcCWk3iapZmBlSiESpjXFF+UMNxIpNxWJ5qQtQrCp5Md7kYbF4/EFy8RqJ8tL8UTeA==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+-    "node_modules/@openai/codex-linux-x64": {
+-      "name": "@openai/codex",
+-      "version": "0.153.0-linux-x64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.153.0-linux-x64.tgz",
+-      "integrity": "sha512-sFF+g7p1o6sZVL6PHd9JTYrP2j3xao3Qeu5AngcrD5brWrCc+w9ifBJCJuRSM728WfgjXML9PQPdHPaZSeHAEA==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+-    "node_modules/@openai/codex-win32-arm64": {
+-      "name": "@openai/codex",
+-      "version": "0.153.0-win32-arm64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.153.0-win32-arm64.tgz",
+-      "integrity": "sha512-Ro+/2oAQnOObxuw3hpr+anv+j9hFmql/2iDxd7v0m46ctZy8x6ygW/Ud4f9CB1UXlRRsDhW+Tu9UAd5X9vTL1g==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "win32"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+-    "node_modules/@openai/codex-win32-x64": {
+-      "name": "@openai/codex",
+-      "version": "0.153.0-win32-x64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.153.0-win32-x64.tgz",
+-      "integrity": "sha512-eXvmitT1Hmr6d8n9r5HVjTuSgdHtxFSyXh0c3rRnaTcJA0ef8JnI5LY0TJci/QHYLNJGaEMBZ5R4dEdB2d87Lw==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "win32"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+     "node_modules/@opentelemetry/api": {
+       "version": "1.0.3",
+       "resolved": "https://registry.npmjs.org/@opentelemetry/api/-/api-1.0.3.tgz",
+diff --git a/package.json b/package.json
+index 68312467..ca1544f1 100644
+--- a/package.json
++++ b/package.json
+@@ -112,7 +112,6 @@
+     "@vscode/iconv-lite-umd": "0.7.1",
+     "@vscode/native-watchdog": "^1.4.6",
+     "@vscode/os-proxy-resolver": "^0.4.0",
+-    "@vscode/policy-watcher": "^1.4.0",
+     "@vscode/proxy-agent": "^0.45.0",
+     "@vscode/ripgrep-universal": "^1.18.0",
+     "@vscode/sandbox-runtime": "0.0.1",
+diff --git a/remote/package-lock.json b/remote/package-lock.json
+index abaadbba..c3d2c9d9 100644
+--- a/remote/package-lock.json
++++ b/remote/package-lock.json
+@@ -51,6 +51,7 @@
+         "ssh2": "^1.16.0",
+         "tar": "^7.5.20",
+         "tas-client": "0.4.6",
++        "tslib": "^2.6.3",
+         "vscode-oniguruma": "1.7.0",
+         "vscode-regexpp": "^3.1.0",
+         "vscode-textmate": "^9.3.2",
+diff --git a/remote/package.json b/remote/package.json
+index b84062c0..afab5e83 100644
+--- a/remote/package.json
++++ b/remote/package.json
+@@ -52,7 +52,8 @@
+     "ws": "^8.19.0",
+     "yauzl": "^3.3.1",
+     "yazl": "^2.4.3",
+-    "zod": "^4.4.3"
++    "zod": "^4.4.3",
++    "tslib": "^2.6.3"
+   },
+   "overrides": {
+     "node-gyp-build": "4.8.1",
+diff --git a/src/vs/base/common/product.ts b/src/vs/base/common/product.ts
+index 0767bb78..97c5f1a4 100644
+--- a/src/vs/base/common/product.ts
++++ b/src/vs/base/common/product.ts
+@@ -152,6 +152,8 @@ export interface IProductConfiguration {
+ 		readonly nlsBaseUrl: string;
+ 		readonly accessSKUs?: string[];
+ 		readonly accessScopes?: string[];
++		readonly itemUrl?: string;
++		readonly latestUrlTemplate?: string;
+ 	};
+ 
+ 	readonly agentSdks?: { readonly [packageId: string]: IAgentSdkProductConfig };
+diff --git a/src/vs/platform/agentHost/node/agentHostBootstrap.ts b/src/vs/platform/agentHost/node/agentHostBootstrap.ts
+index 7255e08a..74eeb91c 100644
+--- a/src/vs/platform/agentHost/node/agentHostBootstrap.ts
++++ b/src/vs/platform/agentHost/node/agentHostBootstrap.ts
+@@ -171,7 +171,6 @@ export async function createAgentHostRuntime(options: ICreateAgentHostRuntimeOpt
+ 		});
+ 		instantiationService = new InstantiationService(services, /*strict*/ true);
+ 		const octoKitService = instantiationService.invokeFunction(accessor => accessor.get(IAgentHostOctoKitService));
+-		const copilotApiService = instantiationService.invokeFunction(accessor => accessor.get(ICopilotApiService));
+ 		services.set(IAgentHostSessionTitleController, infrastructure.add(instantiationService.createInstance(AgentHostSessionTitleController, foundation.stateManager, {
+ 			sessionDataService,
+ 			queueCatalogSync: (session, metadataOverrides) => foundation.callbackAdapter.value.queueCatalogSync(session, metadataOverrides),
+diff --git a/src/vs/platform/agentHost/node/agentHostMain.ts b/src/vs/platform/agentHost/node/agentHostMain.ts
+index 53752554..efa8aa67 100644
+--- a/src/vs/platform/agentHost/node/agentHostMain.ts
++++ b/src/vs/platform/agentHost/node/agentHostMain.ts
+@@ -15,8 +15,7 @@ import { URI } from '../../../base/common/uri.js';
+ import { generateUuid } from '../../../base/common/uuid.js';
+ import * as os from 'os';
+ import * as inspector from 'inspector';
+-import { AgentHostClaudeAgentEnabledEnvVar, AgentHostCodexAgentCodexHomeEnvVar, AgentHostCodexAgentEnabledEnvVar, AgentHostIpcChannels, IAgentHostInspectInfo, IAgentHostSocketInfo, IConnectionTrackerService, isAgentEnabled } from '../common/agentService.js';
+-import { AgentHostCodexEnabledConfigKey, platformRootSchema } from '../common/agentHostSchema.js';
++import { AgentHostIpcChannels, IAgentHostInspectInfo, IAgentHostSocketInfo, IConnectionTrackerService } from '../common/agentService.js';
+ import { AgentModelRefreshScheduler, MODEL_REFRESH_INTERVAL_MS } from './agentModelRefreshScheduler.js';
+ import { AgentService } from './agentService.js';
+ import { AgentHostStateManager, IAgentHostStateManager } from './agentHostStateManager.js';
+@@ -122,7 +121,8 @@ async function startAgentHost(): Promise<void> {
+ 			loggerService,
+ 			transientProxyConfiguration: true,
+ 			hostLaunchKind,
+-			providerConfigurations: [createCodexProviderConfiguration(environmentService.userHome, process.env[AgentHostCodexAgentCodexHomeEnvVar])],
++
++			providerConfigurations: [],
+ 			byok: { kind: 'renderer', bridgeRegistry: byokLmBridgeRegistry },
+ 		});
+ 		disposables.add(runtime);
+@@ -143,46 +143,6 @@ async function startAgentHost(): Promise<void> {
+ 		stateManager = runtimeServices.stateManager;
+ 		completionTriggerCharacters = runtimeServices.completions.triggerCharacters;
+ 		errorTelemetry.value = new ErrorTelemetry(runtimeServices.telemetryService);
+-		const agentSdkDownloader = runtimeServices.agentSdkDownloader;
+-		const providerService = runtimeServices.providerService;
+-		sdkDownloadProgress = runtime.sdkDownloadProgress;
+-		providerService.registerProvider(instantiationService.createInstance(CopilotAgent));
+-		// Claude and Codex providers are gated on two things:
+-		//  1. The user-facing enable toggle (`chat.agentHost.<x>Agent.enabled`,
+-		//     forwarded as an env var by the starters). Claude defaults to on.
+-		//     Codex defaults to on outside Stable and off in Stable; if a starter
+-		//     does not forward its resolved value, the host fallback is off.
+-		//  2. The SDK being reachable. Claude is a devDependency of this repo
+-		//     so the bare-import path in `ClaudeAgentSdkService._loadSdk`
+-		//     always succeeds in dev; in built products the SDK ships via
+-		//     `product.agentSdks.claude` and the downloader handles it. Codex
+-		//     is likewise a devDependency, so `CodexAgent._resolveSdkRoot`
+-		//     resolves it from `node_modules` in dev; built products use the
+-		//     env-var override or a `product.agentSdks.codex` entry.
+-		// If either gate fails, the provider is not registered and never appears
+-		// in the agent picker (matches the pre-CDN UX exactly).
+-		if (isAgentEnabled(process.env[AgentHostClaudeAgentEnabledEnvVar], true) && (!environmentService.isBuilt || agentSdkDownloader.isAvailable(ClaudeSdkPackage))) {
+-			providerService.registerProvider(instantiationService.createInstance(ClaudeAgent));
+-		}
+-		// Codex registration is one-way (register-on-enable): the env-var toggle
+-		// or the renderer-forwarded `codexAgentEnabled` root config enables it.
+-		// Disabling requires an agent host restart.
+-		if (!environmentService.isBuilt || agentSdkDownloader.isAvailable(CodexSdkPackage)) {
+-			let codexRegistered = false;
+-			const registerCodexIfEnabled = () => {
+-				if (codexRegistered) {
+-					return;
+-				}
+-				const enabledByEnv = isAgentEnabled(process.env[AgentHostCodexAgentEnabledEnvVar], false);
+-				const enabledByRootConfig = agentConfigurationService.getRootValue(platformRootSchema, AgentHostCodexEnabledConfigKey) === true;
+-				if (enabledByEnv || enabledByRootConfig) {
+-					codexRegistered = true;
+-					providerService.registerProvider(instantiationService.createInstance(CodexAgent));
+-				}
+-			};
+-			registerCodexIfEnabled();
+-			disposables.add(agentConfigurationService.onDidRootConfigChange(registerCodexIfEnabled));
+-		}
+ 	} catch (err) {
+ 		logService.error('Failed to create AgentService', err);
+ 		disposables.dispose();
+diff --git a/src/vs/platform/agentHost/node/agentHostServerMain.ts b/src/vs/platform/agentHost/node/agentHostServerMain.ts
+index 3d088613..eb939e8e 100644
+--- a/src/vs/platform/agentHost/node/agentHostServerMain.ts
++++ b/src/vs/platform/agentHost/node/agentHostServerMain.ts
+@@ -15,7 +15,6 @@ globalThis._VSCODE_FILE_ROOT = fileURLToPath(new URL('../../../..', import.meta.
+ 
+ import * as fs from 'fs';
+ import * as os from 'os';
+-import type { Event } from '../../../base/common/event.js';
+ import { DisposableStore, MutableDisposable } from '../../../base/common/lifecycle.js';
+ import { URI } from '../../../base/common/uri.js';
+ import { generateUuid } from '../../../base/common/uuid.js';
+@@ -32,21 +31,13 @@ import { IProductService } from '../../product/common/productService.js';
+ import { shutdownAgentHostBeforeDispose } from './agentHostShutdown.js';
+ import { ITelemetryService } from '../../telemetry/common/telemetry.js';
+ import { createAgentHostRuntime } from './agentHostBootstrap.js';
+-import { IAgentConfigurationService } from './agentConfigurationService.js';
+ import { IAgentHostCompletions } from './agentHostCompletions.js';
+ import { IAgentHostCustomizationEnablementService } from './agentHostCustomizationEnablementService.js';
+ import { IAgentHostStateManager } from './agentHostStateManager.js';
+ import { BANG_COMMAND_PREFIX } from './agentHostBangCommand.js';
+-import { CopilotAgent } from './copilot/copilotAgent.js';
+-import { ClaudeAgent } from './claude/claudeAgent.js';
+-import { ClaudeSdkPackage } from './claude/claudeAgentSdkService.js';
+-import { CodexAgent, CodexSdkPackage } from './codex/codexAgent.js';
+-import { createCodexProviderConfiguration } from './codex/codexProviderConfiguration.js';
+-import { IAgentSdkDownloader, type IAgentSdkDownloadProgress } from './agentSdkDownloader.js';
+ import { IAgentHostProviderService } from './agentHostProviderService.js';
+-import { AgentHostCodexEnabledConfigKey, platformRootSchema } from '../common/agentHostSchema.js';
+ import { AgentModelRefreshScheduler, MODEL_REFRESH_INTERVAL_MS } from './agentModelRefreshScheduler.js';
+-import { AgentHostClaudeAgentEnabledEnvVar, AgentHostClaudeSdkRootEnvVar, AgentHostCodexAgentCodexHomeEnvVar, AgentHostCodexAgentEnabledEnvVar, AgentHostCodexAgentSdkRootEnvVar, isAgentEnabled } from '../common/agentService.js';
++import { AgentHostClaudeSdkRootEnvVar, AgentHostCodexAgentSdkRootEnvVar } from '../common/agentService.js';
+ import { WebSocketProtocolServer } from './webSocketTransport.js';
+ import { ProtocolServerHandler } from './protocolServerHandler.js';
+ import { AgentHostClientFileSystemProvider } from '../common/agentHostClientFileSystemProvider.js';
+@@ -199,27 +190,24 @@ async function main(): Promise<void> {
+ 		disableTelemetry: options.quiet,
+ 		transientProxyConfiguration: false,
+ 		hostLaunchKind: AgentHostLaunchKind.VSCodeCLI,
+-		providerConfigurations: [createCodexProviderConfiguration(environmentService.userHome, process.env[AgentHostCodexAgentCodexHomeEnvVar])],
++
++		providerConfigurations: [],
+ 		byok: { kind: 'unavailable' },
+ 	});
+ 	disposables.add(runtime);
+ 	const { agentService, instantiationService } = runtime;
+ 	const runtimeServices = instantiationService.invokeFunction(accessor => ({
+-		configurationService: accessor.get(IAgentConfigurationService),
+ 		fileService: accessor.get(IFileService),
+ 		sessionDataService: accessor.get(ISessionDataService),
+ 		telemetryService: accessor.get(ITelemetryService),
+-		agentSdkDownloader: accessor.get(IAgentSdkDownloader),
+ 		providerService: accessor.get(IAgentHostProviderService),
+ 		stateManager: accessor.get(IAgentHostStateManager),
+ 		completions: accessor.get(IAgentHostCompletions),
+ 		customizationEnablementService: accessor.get(IAgentHostCustomizationEnablementService),
+ 	}));
+ 	const {
+-		configurationService: agentConfigurationService,
+ 		fileService,
+ 		sessionDataService,
+-		agentSdkDownloader,
+ 		providerService,
+ 		stateManager,
+ 		completions,
+@@ -227,65 +215,6 @@ async function main(): Promise<void> {
+ 	} = runtimeServices;
+ 	errorTelemetry.value = new ErrorTelemetry(runtimeServices.telemetryService);
+ 
+-	// Register agents
+-	let sdkDownloadProgress: Event<IAgentSdkDownloadProgress> | undefined;
+-	if (!options.quiet) {
+-		sdkDownloadProgress = runtime.sdkDownloadProgress;
+-		providerService.registerProvider(instantiationService.createInstance(CopilotAgent));
+-		log('CopilotAgent registered');
+-		// Claude and Codex providers are gated on two things:
+-		//  1. The user-facing enable toggle (`chat.agentHost.<x>Agent.enabled`,
+-		//     forwarded as an env var by the renderer-side starters; the remote
+-		//     server reads the env directly). Claude defaults to on, Codex
+-		//     defaults to off.
+-		//  2. The SDK being reachable. Claude is a devDependency of this repo
+-		//     so the bare-import path in `ClaudeAgentSdkService._loadSdk`
+-		//     always succeeds in dev; in built/shipped server installs the
+-		//     SDK comes from the CLI flag / env var dev override or a
+-		//     `product.agentSdks.claude` entry. Codex is likewise a
+-		//     devDependency, so `CodexAgent._resolveSdkRoot` resolves it from
+-		//     `node_modules` in dev; built/shipped installs use the env-var
+-		//     override or `product.agentSdks.codex`.
+-		if (isAgentEnabled(process.env[AgentHostClaudeAgentEnabledEnvVar], true) && (!environmentService.isBuilt || agentSdkDownloader.isAvailable(ClaudeSdkPackage))) {
+-			providerService.registerProvider(instantiationService.createInstance(ClaudeAgent));
+-			log('ClaudeAgent registered');
+-		}
+-		if (!environmentService.isBuilt || agentSdkDownloader.isAvailable(CodexSdkPackage)) {
+-			let codexRegistered = false;
+-			const registerCodexIfEnabled = () => {
+-				if (codexRegistered) {
+-					return;
+-				}
+-				const enabledByEnv = isAgentEnabled(process.env[AgentHostCodexAgentEnabledEnvVar], false);
+-				const enabledByRootConfig = agentConfigurationService.getRootValue(platformRootSchema, AgentHostCodexEnabledConfigKey) === true;
+-				if (enabledByEnv || enabledByRootConfig) {
+-					codexRegistered = true;
+-					providerService.registerProvider(instantiationService.createInstance(CodexAgent));
+-					log('CodexAgent registered');
+-				}
+-			};
+-			registerCodexIfEnabled();
+-			disposables.add(agentConfigurationService.onDidRootConfigChange(() => registerCodexIfEnabled()));
+-		}
+-	}
+-
+-	// Surface agent-SDK download progress to clients as generic `progress`
+-	// notifications. The downloader fires process-global frames keyed by package
+-	// id; the agent service surfaces frames requested by a waiting session or
+-	// another user-initiated flow, routed through the state manager so both local
+-	// (IPC) and remote (WebSocket) renderers receive them via the same path as
+-	// session updates.
+-	if (sdkDownloadProgress) {
+-		disposables.add(sdkDownloadProgress(p => agentService.emitDownloadProgress(
+-			p.packageId,
+-			p.displayName,
+-			p.receivedBytes,
+-			p.totalBytes,
+-			p.phase === 'completed' || p.phase === 'failed',
+-			p.explicitlyRequested,
+-		)));
+-	}
+-
+ 	if (options.enableMockAgent) {
+ 		// Dynamic import to avoid bundling test code in production
+ 		import('../test/node/mockAgent.js').then(({ ScriptedMockAgent }) => {
+diff --git a/src/vs/platform/agentHost/node/agentHostServices.ts b/src/vs/platform/agentHost/node/agentHostServices.ts
+index 4ea669ee..4215cb8d 100644
+--- a/src/vs/platform/agentHost/node/agentHostServices.ts
++++ b/src/vs/platform/agentHost/node/agentHostServices.ts
+@@ -138,10 +138,6 @@ export function registerAgentHostHostServices(services: ServiceCollection, input
+ 	services.set(IAgentHostGitService, new SyncDescriptor(AgentHostGitService));
+ 	services.set(IAgentPluginManager, new SyncDescriptor(AgentPluginManager, [inputs.userDataPath]));
+ 	services.set(IAgentSdkDownloader, new SyncDescriptor(AgentSdkDownloader));
+-	services.set(IClaudeAgentSdkService, new SyncDescriptor(ClaudeAgentSdkService));
+-	services.set(IClaudeProxyService, new SyncDescriptor(ClaudeProxyService));
+-	services.set(ICodexProxyService, new SyncDescriptor(CodexProxyService, [undefined]));
+-	services.set(IAgentHostOTelService, new SyncDescriptor(AgentHostOTelService, [inputs.fetchFn]));
+ 	services.set(
+ 		IByokLmProxyService,
+ 		inputs.byok.kind === 'renderer' ? new SyncDescriptor(ByokLmProxyService) : new NullByokLmProxyService(),
+diff --git a/src/vs/platform/agentHost/node/copilot/prompts/promptRegistry.ts b/src/vs/platform/agentHost/node/copilot/prompts/promptRegistry.ts
+index 3fae7173..b31b8ea8 100644
+--- a/src/vs/platform/agentHost/node/copilot/prompts/promptRegistry.ts
++++ b/src/vs/platform/agentHost/node/copilot/prompts/promptRegistry.ts
+@@ -6,10 +6,6 @@
+ import { copilotCliConfigSchema } from '../../../common/copilotCliConfig.js';
+ import type { SchemaValue } from '../../../common/agentHostSchema.js';
+ import type { ModelSelection } from '../../../common/state/protocol/state.js';
+-import { AGENT_HOST_FILE_LINK_INSTRUCTIONS } from '../../shared/fileLinkInstructions.js';
+-import { AGENT_HOST_WORKSPACELESS_INSTRUCTIONS } from '../../shared/workspacelessInstructions.js';
+-import { appendSystemMessageContent, COPILOT_AGENT_HOST_SYSTEM_MESSAGE, fullSystemPrompt, sectionOverrides, withDefaultSections } from './systemMessage.js';
+-import { resolveToolInstructionsOverride, toolSearchInstructionLines, universalToolInstructions, type IToolInstructionContext } from './toolInstructions.js';
+ 
+ type CopilotCliConfigDefinition = typeof copilotCliConfigSchema.definition;
+ 
+@@ -121,104 +117,6 @@ export class AgentHostPromptRegistry {
+ 		}
+ 	}
+ 
+-	private _getContributor(model: ModelSelection): IAgentHostPromptCtor | undefined {
+-		for (const ctor of this._promptsWithMatcher) {
+-			if (ctor.matchesModel(model)) {
+-				return ctor;
+-			}
+-		}
+-		for (const { prefix, ctor } of this._familyPrefixList) {
+-			if (model.id.startsWith(prefix)) {
+-				return ctor;
+-			}
+-		}
+-		return undefined;
+-	}
+-
+-	/**
+-	 * The per-model (or default) config with the universal layers on top. Those
+-	 * layers apply to every mode, including a full `replace` prompt (appended
+-	 * after its content), so a replacement owns the prompt body but not the
+-	 * host's plumbing.
+-	 *
+-	 * Lifetime: the SDK accepts a system message only at session create/resume
+-	 * (there is no mid-session update), so this is resolved once per (re)launch
+-	 * and any tool-gated content reflects the tool set at that moment. A change
+-	 * to the session's tools/plugins is part of the launcher's restart-detection
+-	 * snapshot, so it re-launches the session and recomputes this; an in-flight
+-	 * turn keeps the prompt it launched with.
+-	 */
+-	resolveSystemMessageConfig(model: ModelSelection | undefined, context: IAgentHostPromptContext): SystemMessageConfig {
+-		const config = this._withUniversalSections(this._resolveModelConfig(model, context), context);
+-		const withWorkspacelessScratch = this._withWorkspacelessScratch(config, context);
+-		return appendSystemMessageContent(withWorkspacelessScratch, AGENT_HOST_FILE_LINK_INSTRUCTIONS);
+-	}
+-
+-	/**
+-	 * Resolves the per-model config, before universal sections are layered on.
+-	 *
+-	 * Falls back to {@link COPILOT_AGENT_HOST_SYSTEM_MESSAGE} when the model is
+-	 * unknown (e.g. server-side "Auto" selection where no model is chosen at
+-	 * create time), when no contributor matches, or when the matching
+-	 * contributor opts out for the current {@link context} (e.g. a setting that
+-	 * gates it is disabled).
+-	 */
+-	private _resolveModelConfig(model: ModelSelection | undefined, context: IAgentHostPromptContext): SystemMessageConfig {
+-		if (!model) {
+-			return COPILOT_AGENT_HOST_SYSTEM_MESSAGE;
+-		}
+-		const ctor = this._getContributor(model);
+-		if (!ctor) {
+-			return COPILOT_AGENT_HOST_SYSTEM_MESSAGE;
+-		}
+-		const contributor = new ctor();
+-		const fullPrompt = contributor.resolveFullSystemPrompt?.(model, context);
+-		if (fullPrompt !== undefined) {
+-			return fullSystemPrompt(fullPrompt);
+-		}
+-		const sections = contributor.resolveSectionOverrides?.(model, context);
+-		// Composed OVER the defaults, so a contributor only overrides what it names.
+-		if (sections && Object.keys(sections).length > 0) {
+-			return withDefaultSections(sectionOverrides(sections));
+-		}
+-		return COPILOT_AGENT_HOST_SYSTEM_MESSAGE;
+-	}
+-
+-	/**
+-	 * Layers the tool instructions that apply to EVERY model over the base config.
+-	 * A `customize` config composes them into its `tool_instructions` section
+-	 * rather than being overwritten by them; a `replace` prompt has no sections,
+-	 * so they are appended after its content instead of being silently lost.
+-	 */
+-	private _withUniversalSections(config: SystemMessageConfig, context: IAgentHostPromptContext): SystemMessageConfig {
+-		const lineContext: IToolInstructionContext = {
+-			hasTool: name => context.hasClientTool(name),
+-			getSetting: key => context.getSetting(key),
+-		};
+-		if (config.mode === 'replace') {
+-			const lines = universalToolInstructions(lineContext, toolSearchInstructionLines(context.toolSearchActive));
+-			return lines ? appendSystemMessageContent(config, lines) : config;
+-		}
+-		if (config.mode !== 'customize') {
+-			return config;
+-		}
+-		const toolInstructions = resolveToolInstructionsOverride(lineContext, config.sections?.tool_instructions, toolSearchInstructionLines(context.toolSearchActive));
+-		if (!toolInstructions) {
+-			return config;
+-		}
+-		return { ...config, sections: { ...config.sections, tool_instructions: toolInstructions } };
+-	}
+-
+-	/**
+-	 * Appends the scratch/repoless guidance as trailing `content`, so it composes
+-	 * on top of whatever the base config carries — including a `replace` prompt.
+-	 */
+-	private _withWorkspacelessScratch(config: SystemMessageConfig, context: IAgentHostPromptContext): SystemMessageConfig {
+-		if (!context.workspaceless) {
+-			return config;
+-		}
+-		return appendSystemMessageContent(config, AGENT_HOST_WORKSPACELESS_INSTRUCTIONS);
+-	}
+ }
+ 
+ /**
+diff --git a/src/vs/platform/agentHost/node/copilot/sessionCustomizationDiscovery.ts b/src/vs/platform/agentHost/node/copilot/sessionCustomizationDiscovery.ts
+index c6e081b3..724938b1 100644
+--- a/src/vs/platform/agentHost/node/copilot/sessionCustomizationDiscovery.ts
++++ b/src/vs/platform/agentHost/node/copilot/sessionCustomizationDiscovery.ts
+@@ -9,21 +9,14 @@ import { CancellationError } from '../../../../base/common/errors.js';
+ import { Emitter, Event } from '../../../../base/common/event.js';
+ import { Disposable, type IDisposable } from '../../../../base/common/lifecycle.js';
+ import { ResourceMap, ResourceSet } from '../../../../base/common/map.js';
+-import { joinPath, dirname as uriDirname, extUriBiasedIgnorePathCase } from '../../../../base/common/resources.js';
++import { joinPath } from '../../../../base/common/resources.js';
+ import { compare as compareStrings } from '../../../../base/common/strings.js';
+ import { URI } from '../../../../base/common/uri.js';
+-import { basename, isAbsolute, dirname as nodeDirname } from '../../../../base/common/path.js';
++import { dirname as nodeDirname } from '../../../../base/common/path.js';
+ import { FileOperationResult, IFileService, IFileStat, IFileStatWithMetadata, toFileOperationResult } from '../../../files/common/files.js';
+ import { ILogService } from '../../../log/common/log.js';
+-import { detectPluginFormat, parsePlugin, parseSkillFile, readPluginManifest, toSkillInvocationFlags } from '../../../agentPlugins/common/pluginParsers.js';
+-import { AgentCustomization, ChildCustomization, CustomizationLoadStatus, CustomizationType, DirectoryCustomization, HookCustomization, PluginCustomization, RuleCustomization, SkillCustomization, customizationId } from '../../common/state/sessionState.js';
+-import { ChildCustomizationType } from '../../common/state/protocol/state.js';
+-import { toAgentCustomizationMeta } from '../../common/meta/agentCustomizationMeta.js';
+-import { raceCancellationError } from '../../../../base/common/async.js';
+-import { toChildCustomizations } from './copilotPluginConverters.js';
+-
+-type AgentsDiscoverRequest = Parameters<CopilotClient['rpc']['agents']['discover']>[0];
+-type InstructionSource = Awaited<ReturnType<CopilotClient['rpc']['instructions']['discover']>>['sources'][number];
++import { DirectoryCustomization, PluginCustomization } from '../../common/state/sessionState.js';
++
+ export type SessionDiscoveredCustomization = DirectoryCustomization | (PluginCustomization & {
+ 	readonly contents?: undefined;
+ 	readonly writable?: undefined;
+diff --git a/src/vs/platform/agentHost/test/node/agentServiceTestUtils.ts b/src/vs/platform/agentHost/test/node/agentServiceTestUtils.ts
+index bfc053d0..5e350b45 100644
+--- a/src/vs/platform/agentHost/test/node/agentServiceTestUtils.ts
++++ b/src/vs/platform/agentHost/test/node/agentServiceTestUtils.ts
+@@ -200,7 +200,6 @@ export function createTestAgentService(
+ 	services.set(IAgentHostWorktreeIsolation, worktreeIsolation.service);
+ 	const instantiationService = new InstantiationService(services, /*strict*/ true);
+ 	const octoKitService = instantiationService.invokeFunction(accessor => accessor.get(IAgentHostOctoKitService));
+-	const effectiveCopilotApiService = instantiationService.invokeFunction(accessor => accessor.get(ICopilotApiService));
+ 	services.set(IAgentHostSessionTitleController, foundationDisposables.add(instantiationService.createInstance(AgentHostSessionTitleController, foundation.stateManager, {
+ 		sessionDataService,
+ 		queueCatalogSync: (session, metadataOverrides) => foundation.callbackAdapter.value.queueCatalogSync(session, metadataOverrides),
+diff --git a/src/vs/platform/extensionManagement/common/extensionGalleryManifestService.ts b/src/vs/platform/extensionManagement/common/extensionGalleryManifestService.ts
+index 337d2e65..a081c484 100644
+--- a/src/vs/platform/extensionManagement/common/extensionGalleryManifestService.ts
++++ b/src/vs/platform/extensionManagement/common/extensionGalleryManifestService.ts
+@@ -11,7 +11,7 @@ import { FilterType, SortBy } from './extensionManagement.js';
+ 
+ type ExtensionGalleryConfig = {
+ 	readonly serviceUrl: string;
+-	readonly itemUrl: string;
++	readonly itemUrl?: string;
+ 	readonly publisherUrl: string;
+ 	readonly resourceUrlTemplate: string;
+ 	readonly extensionUrlTemplate: string;
+diff --git a/src/vs/platform/update/electron-main/updateService.win32.ts b/src/vs/platform/update/electron-main/updateService.win32.ts
+index cbc8e465..f9095a05 100644
+--- a/src/vs/platform/update/electron-main/updateService.win32.ts
++++ b/src/vs/platform/update/electron-main/updateService.win32.ts
+@@ -156,7 +156,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
+ 		const updatingVersionPath = path.join(exeDir, 'updating_version');
+ 		if (await pfs.Promises.exists(updatingVersionPath)) {
+ 			try {
+-				const updateType = getUpdateType();
++				const updateType = this.getUpdateType();
+ 				const updatingVersion = (await readFile(updatingVersionPath, 'utf8')).trim();
+ 				this.logService.info(`update#doCheckForUpdates - application was updating to version ${updatingVersion}`);
+ 				const updatePackagePath = await this.getUpdatePackagePath(updatingVersion, updateType);
+@@ -179,7 +179,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
+ 			return;
+ 		}
+ 
+-		const fastUpdatesEnabled = getUpdateType() === UpdateType.Setup && this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
++		const fastUpdatesEnabled = this.getUpdateType() === UpdateType.Setup && this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
+ 		// GC for background updates in system setup happens via inno_setup since it requires elevated permissions.
+ 		if (!fastUpdatesEnabled || this.productService.target !== 'user' || !this.productService.commit) {
+ 			return;
+@@ -205,19 +205,15 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
+ 		});
+ 	}
+ 
+-	protected buildUpdateFeedUrl(quality: string, commit: string, options?: IUpdateURLOptions): string | undefined {
+-		let platform = `win32-${process.arch}`;
+-
+-		if (this.getUpdateType() === UpdateType.Archive) {
+-			platform += '-archive';
+-		} else if (this.productService.target === 'user') {
+-			platform += '-user';
+-		}
+-
+-		return createUpdateURL(this.productService.updateUrl!, platform, quality, commit, options);
++	protected buildUpdateFeedUrl(quality: string, _options?: IUpdateURLOptions): string | undefined {
++		const type = this.getUpdateType();
++		const target: Target = type === UpdateType.Archive ? 'archive'
++			: type === UpdateType.WindowsInstaller ? 'msi'
++				: this.productService.target === 'user' ? 'user' : 'system';
++		return createUpdateURL(this.productService, quality, process.platform, process.arch, target);
+ 	}
+ 
+-	protected doCheckForUpdates(explicit: boolean, pendingCommit?: string): void {
++	protected doCheckForUpdates(explicit: boolean, pendingVersion?: string): void {
+ 		if (!this.quality) {
+ 			return;
+ 		}
+@@ -232,10 +228,16 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
+ 		const cts = this.checkCancellationTokenSource = new CancellationTokenSource();
+ 		const token = cts.token;
+ 
+-		const headers = getUpdateRequestHeaders(this.productService.version);
+-		const promise = this.requestService.request({ url, headers, callSite: 'updateService.win32.checkForUpdates' }, token)
+-			.then<IUpdate | null>(asJson)
+-			.then(update => {
++		const internalOrg = this.getInternalOrg();
++		const background = !explicit && !internalOrg;
++		const url = this.buildUpdateFeedUrl(this.quality, { background, internalOrg });
++		if (!url) {
++			this.setState(State.Idle(this.getUpdateType()));
++			cts.dispose();
++			return;
++		}
++		const promise = this._isLatestVersion(url, explicit, pendingVersion, token)
++			.then(result => {
+ 				const updateType = this.getUpdateType();
+ 
+ 				if (token.isCancellationRequested) {
+@@ -435,7 +437,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
+ 
+ 			let child: ChildProcess;
+ 
+-			const type = getUpdateType();
++			const type = this.getUpdateType();
+ 
+ 			if (type === UpdateType.WindowsInstaller) {
+ 				this.logService.info(`update#doApplyUpdate - msiexec.exe /i ${this.availableUpdate.packagePath}`);
+@@ -645,7 +647,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
+ 				// ignore
+ 			}
+ 		} else {
+-			const type = getUpdateType();
++			const type = this.getUpdateType();
+ 			if (type === UpdateType.WindowsInstaller) {
+ 				this.logService.info(`update#doQuitAndInstall - msiexec.exe /i ${this.availableUpdate.packagePath}`);
+ 
+@@ -729,7 +731,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
+ 	}
+ 
+ 	protected override getUpdateType(): UpdateType {
+-		return getWin32UpdateType(this.productService.target);
++		if (isInnoSetupInstall(this.productService.target)) {
++			return UpdateType.Setup;
++		}
++		return path.basename(path.normalize(path.join(process.execPath, '..', '..'))) === 'Program Files'
++			? UpdateType.WindowsInstaller : UpdateType.Archive;
+ 	}
+ 
+ 	override async _applySpecificUpdate(packagePath: string, commit?: string): Promise<void> {
+diff --git a/src/vs/sessions/browser/workbench.ts b/src/vs/sessions/browser/workbench.ts
+index 89b2c3ce..95c5ec52 100644
+--- a/src/vs/sessions/browser/workbench.ts
++++ b/src/vs/sessions/browser/workbench.ts
+@@ -83,7 +83,7 @@ import { ISessionsSetUpService } from './sessionsSetUpService.js';
+ import { AGENTS_FLOATING_PANEL_GAP } from '../common/layoutConstants.js';
+ import { ITelemetryService } from '../../platform/telemetry/common/telemetry.js';
+ 
+-const PHONE_NOTIFICATION_ROW_HEIGHT = 44;
++import { FONT } from '../../base/common/font.js';
+ 
+ type SessionsWindowLayoutEvent = {
+ 	layout: string;
+diff --git a/src/vs/sessions/test/browser/workbench.test.ts b/src/vs/sessions/test/browser/workbench.test.ts
+index 34a02c62..f1e04b5f 100644
+--- a/src/vs/sessions/test/browser/workbench.test.ts
++++ b/src/vs/sessions/test/browser/workbench.test.ts
+@@ -21,7 +21,8 @@ import { EditorInputCapabilities } from '../../../workbench/common/editor.js';
+ import { GroupDirection, GroupOrientation } from '../../../workbench/services/editor/common/editorGroupsService.js';
+ import { SESSIONS_LIST_MINIMUM_WIDTH } from '../../browser/parts/sidebarPart.js';
+ import { Menus } from '../../browser/menus.js';
+-import { DEFAULT_NOTIFICATION_ROW_HEIGHT, onDidChangeNotificationRowHeight, setNotificationRowHeight } from '../../../workbench/browser/parts/notifications/notificationsViewer.js';
++import { onDidChangeNotificationRowHeight, setNotificationRowHeight } from '../../../workbench/browser/parts/notifications/notificationsViewer.js';
++import { FONT } from '../../../base/common/font.js';
+ import { NullTelemetryServiceShape } from '../../../platform/telemetry/common/telemetryUtils.js';
+ import { IEditorGroupViewOptions } from '../../../workbench/browser/parts/editor/editor.js';
+ import { EditorInput } from '../../../workbench/common/editor/editorInput.js';
+diff --git a/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts b/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts
+index 85b53d31..9c2b6aa3 100644
+--- a/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts
++++ b/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts
+@@ -110,22 +110,22 @@ export class ActivitybarPart extends Part {
+ 	private get baseWidth(): number {
+ 		if (this.layoutService.isFloatingPanelsEnabled()) {
+ 			if (this._isCompact) {
+-				return ActivitybarPart.FLOATING_COMPACT_ACTIVITYBAR_WIDTH;
++				return FONT.activityBarSize36 * ActivitybarPart.FLOATING_COMPACT_ACTIVITYBAR_WIDTH_RATIO;
+ 			}
+-			return ActivitybarPart.FLOATING_ACTIVITYBAR_WIDTH;
++			return FONT.activityBarSize36;
+ 		}
+-		return this._isCompact ? ActivitybarPart.COMPACT_ACTIVITYBAR_WIDTH : ActivitybarPart.ACTIVITYBAR_WIDTH;
++		return this._isCompact ? FONT.activityBarSize36 : FONT.activityBarSize48;
+ 	}
+ 
+ 	/** The action (item) height that drives visible item sizing. */
+ 	private get actionHeight(): number {
+ 		if (this._isCompact) {
+-			return ActivitybarPart.COMPACT_ACTION_HEIGHT;
++			return FONT.activityBarSize48 * ActivitybarPart.COMPACT_ACTION_HEIGHT_RATIO;
+ 		}
+ 		if (this.layoutService.isFloatingPanelsEnabled()) {
+-			return ActivitybarPart.FLOATING_ACTION_HEIGHT;
++			return FONT.activityBarSize36;
+ 		}
+-		return ActivitybarPart.ACTION_HEIGHT;
++		return FONT.activityBarSize48;
+ 	}
+ 
+ 	/**
+@@ -138,7 +138,7 @@ export class ActivitybarPart extends Part {
+ 			return 0;
+ 		}
+ 
+-		return this.layoutService.isModernUICompact() ? ActivitybarPart.FLOATING_COMPACT_ACTION_GAP : ActivitybarPart.FLOATING_ACTION_GAP;
++		return this.layoutService.isModernUICompact() ? FONT.activityBarSize8 / 2 : FONT.activityBarSize8;
+ 	}
+ 
+ 	/**
+@@ -196,6 +196,13 @@ export class ActivitybarPart extends Part {
+ 		this._isCompact = this.configurationService.getValue<boolean>(LayoutSettings.ACTIVITY_BAR_COMPACT) ?? false;
+ 
+ 		this._register(this.configurationService.onDidChangeConfiguration(e => {
++			if (e.affectsConfiguration('workbench.activityBar.experimental.fontFamily') || e.affectsConfiguration('workbench.activityBar.experimental.fontSize')) {
++				this.applyActivityBarFontFamily();
++				this.applyActivityBarFontSize();
++				this.updateCompactStyle();
++				this.recreateCompositeBar();
++				this._onDidChange.fire(undefined);
++			}
+ 			if (e.affectsConfiguration(LayoutSettings.ACTIVITY_BAR_COMPACT)) {
+ 				this._isCompact = this.configurationService.getValue<boolean>(LayoutSettings.ACTIVITY_BAR_COMPACT) ?? false;
+ 				this.updateCompactStyle();
+diff --git a/src/vs/workbench/browser/parts/auxiliarybar/auxiliaryBarPart.ts b/src/vs/workbench/browser/parts/auxiliarybar/auxiliaryBarPart.ts
+index 082248c7..573badf6 100644
+--- a/src/vs/workbench/browser/parts/auxiliarybar/auxiliaryBarPart.ts
++++ b/src/vs/workbench/browser/parts/auxiliarybar/auxiliaryBarPart.ts
+@@ -34,6 +34,8 @@ import { getContextMenuActions } from '../../../../platform/actions/browser/menu
+ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+ import { VisibleViewContainersTracker } from '../visibleViewContainersTracker.js';
+ import { Extensions } from '../../panecomposite.js';
++import { FONT, getFontSize, updateSidebarSize } from '../../../../base/common/font.js';
++import { SidebarPart } from '../sidebar/sidebarPart.js';
+ import { IToolBarResponsiveBehaviorOptions } from '../../../../base/browser/ui/toolbar/toolbar.js';
+ 
+ interface IAuxiliaryBarPartConfiguration {
+diff --git a/src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts b/src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts
+index ae65681c..485eb92d 100644
+--- a/src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts
++++ b/src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts
+@@ -5,6 +5,7 @@
+ 
+ import './media/multieditortabscontrol.css';
+ import { FONT } from '../../../../base/common/font.js';
++import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+ import { isLinux, isMacintosh, isWindows } from '../../../../base/common/platform.js';
+ import { shorten } from '../../../../base/common/labels.js';
+ import { EditorResourceAccessor, Verbosity, IEditorPartOptions, SideBySideEditor, DEFAULT_EDITOR_ASSOCIATION, EditorInputCapabilities, IUntypedEditorInput, preventEditorClose, EditorCloseMethod, EditorsOrder, IToolbarActions } from '../../../common/editor.js';
+@@ -177,8 +178,9 @@ export class MultiEditorTabsControl extends EditorTabsControl {
+ 		@IEditorResolverService editorResolverService: IEditorResolverService,
+ 		@IHostService hostService: IHostService,
+ 		@IMenuService menuService: IMenuService,
++		@IConfigurationService configurationService: IConfigurationService,
+ 	) {
+-		super(parent, editorPartsView, groupsView, groupView, tabsModel, menuIds, breadcrumbsInHeader, useModernUITabs, contextMenuService, instantiationService, contextKeyService, keybindingService, notificationService, quickInputService, themeService, editorResolverService, hostService, menuService);
++		super(parent, editorPartsView, groupsView, groupView, tabsModel, menuIds, breadcrumbsInHeader, useModernUITabs, contextMenuService, instantiationService, contextKeyService, keybindingService, notificationService, quickInputService, themeService, editorResolverService, hostService, menuService, configurationService);
+ 
+ 		// Resolve the correct path library for the OS we are on
+ 		// If we are connected to remote, this accounts for the
+diff --git a/src/vs/workbench/browser/parts/statusbar/statusbarPart.ts b/src/vs/workbench/browser/parts/statusbar/statusbarPart.ts
+index a59477f9..fae17ef9 100644
+--- a/src/vs/workbench/browser/parts/statusbar/statusbarPart.ts
++++ b/src/vs/workbench/browser/parts/statusbar/statusbarPart.ts
+@@ -36,6 +36,7 @@ import { StatusbarEntryItem } from './statusbarItem.js';
+ import { StatusBarFocused } from '../../../common/contextkeys.js';
+ import { Emitter, Event } from '../../../../base/common/event.js';
+ import { IView } from '../../../../base/browser/ui/grid/grid.js';
++import { FONT, getFontSize, updateStatusBarSize } from '../../../../base/common/font.js';
+ import { isManagedHoverTooltipHTMLElement, isManagedHoverTooltipMarkdownString } from '../../../../base/browser/ui/hover/hover.js';
+ import { IHostService } from '../../../services/host/browser/host.js';
+ import { CodeWindow, mainWindow } from '../../../../base/browser/window.js';
+diff --git a/src/vs/workbench/contrib/chat/browser/widget/chatContentParts/chatReferencesContentPart.ts b/src/vs/workbench/contrib/chat/browser/widget/chatContentParts/chatReferencesContentPart.ts
+index 682b2649..28dfcf72 100644
+--- a/src/vs/workbench/contrib/chat/browser/widget/chatContentParts/chatReferencesContentPart.ts
++++ b/src/vs/workbench/contrib/chat/browser/widget/chatContentParts/chatReferencesContentPart.ts
+@@ -50,6 +50,7 @@ import { IDisposableReference, ResourcePool } from './chatCollections.js';
+ import { IChatContentPartRenderContext } from './chatContentParts.js';
+ import { IHoverService } from '../../../../../../platform/hover/browser/hover.js';
+ import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
++import { FONT } from '../../../../../../base/common/font.js';
+ import { ITelemetryService } from '../../../../../../platform/telemetry/common/telemetry.js';
+ 
+ const $ = dom.$;
+diff --git a/src/vs/workbench/contrib/chat/common/promptSyntax/languageProviders/promptValidator.ts b/src/vs/workbench/contrib/chat/common/promptSyntax/languageProviders/promptValidator.ts
+index fd162e2c..1f53d654 100644
+--- a/src/vs/workbench/contrib/chat/common/promptSyntax/languageProviders/promptValidator.ts
++++ b/src/vs/workbench/contrib/chat/common/promptSyntax/languageProviders/promptValidator.ts
+@@ -326,7 +326,7 @@ export class PromptValidator {
+ 						}
+ 						break;
+ 					case PromptsType.skill:
+-						report(toMarker(localize('promptValidator.unknownAttribute.skill', "Attribute '{0}' is not supported by VS Code skills. Supported: {1}.", attribute.key, supportedNames.value), attribute.range, MarkerSeverity.Hint, [MarkerTag.Unnecessary]));
++						report(toMarker(localize('promptValidator.unknownAttribute.skill', "Attribute '{0}' is not supported by VSCodium skills. Supported: {1}.", attribute.key, supportedNames.value), attribute.range, MarkerSeverity.Hint, [MarkerTag.Unnecessary]));
+ 						break;
+ 				}
+ 			}
+diff --git a/src/vs/workbench/contrib/extensions/browser/extensionsViewlet.ts b/src/vs/workbench/contrib/extensions/browser/extensionsViewlet.ts
+index d06cf753..bbf9d9f9 100644
+--- a/src/vs/workbench/contrib/extensions/browser/extensionsViewlet.ts
++++ b/src/vs/workbench/contrib/extensions/browser/extensionsViewlet.ts
+@@ -69,6 +69,7 @@ import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js
+ import { KeyCode } from '../../../../base/common/keyCodes.js';
+ import { IExtensionGalleryManifest, IExtensionGalleryManifestService, ExtensionGalleryManifestStatus } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+ import { URI } from '../../../../base/common/uri.js';
++import { FONT } from '../../../../base/common/font.js';
+ 
+ export const ExtensionsSortByContext = new RawContextKey<string>('extensionsSortByValue', '');
+ export const SearchMarketplaceExtensionsContext = new RawContextKey<boolean>('searchMarketplaceExtensions', false);
+diff --git a/src/vs/workbench/contrib/modernUI/browser/modernUI.contribution.ts b/src/vs/workbench/contrib/modernUI/browser/modernUI.contribution.ts
+index c656a898..98382682 100644
+--- a/src/vs/workbench/contrib/modernUI/browser/modernUI.contribution.ts
++++ b/src/vs/workbench/contrib/modernUI/browser/modernUI.contribution.ts
+@@ -233,9 +233,9 @@ export class ModernUIContribution extends Disposable implements IWorkbenchContri
+ 	}
+ 
+ 	private applyPaneHeaderSize(enabled: boolean): void {
+-		let paneHeaderSize = DEFAULT_PANE_HEADER_SIZE;
++		let paneHeaderSize = FONT.sidebarSize22;
+ 		if (enabled) {
+-			paneHeaderSize = MODERN_UI_PANE_HEADER_SIZE;
++			paneHeaderSize = FONT.sidebarSize28;
+ 		}
+ 		setGlobalPaneHeaderSize(paneHeaderSize);
+ 	}
+diff --git a/src/vs/workbench/contrib/welcomeAgentSessions/browser/agentSessionsWelcome.ts b/src/vs/workbench/contrib/welcomeAgentSessions/browser/agentSessionsWelcome.ts
+index c7f30f33..563e51e1 100644
+--- a/src/vs/workbench/contrib/welcomeAgentSessions/browser/agentSessionsWelcome.ts
++++ b/src/vs/workbench/contrib/welcomeAgentSessions/browser/agentSessionsWelcome.ts
+@@ -63,6 +63,7 @@ import { IWorkspaceTrustManagementService } from '../../../../platform/workspace
+ import { IViewDescriptorService, ViewContainerLocation } from '../../../common/views.js';
+ import { toErrorMessage } from '../../../../base/common/errorMessage.js';
+ import { ILogService } from '../../../../platform/log/common/log.js';
++import { FONT } from '../../../../base/common/font.js';
+ import { createAgentsBanner } from '../../chat/browser/agentSessions/agentSessionsBanner.js';
+ 
+ const configurationKey = 'workbench.startupEditor';
+diff --git a/src/vs/workbench/test/browser/notificationsList.test.ts b/src/vs/workbench/test/browser/notificationsList.test.ts
+index 63bade88..c906865e 100644
+--- a/src/vs/workbench/test/browser/notificationsList.test.ts
++++ b/src/vs/workbench/test/browser/notificationsList.test.ts
+@@ -12,7 +12,8 @@ import { IConfigurationService } from '../../../platform/configuration/common/co
+ import { TestConfigurationService } from '../../../platform/configuration/test/common/testConfigurationService.js';
+ import { MockKeybindingService } from '../../../platform/keybinding/test/common/mockKeybindingService.js';
+ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/common/utils.js';
+-import { DEFAULT_NOTIFICATION_ROW_HEIGHT, NotificationRenderer, onDidChangeNotificationRowHeight, setNotificationRowHeight } from '../../browser/parts/notifications/notificationsViewer.js';
++import { NotificationRenderer, onDidChangeNotificationRowHeight, setNotificationRowHeight } from '../../browser/parts/notifications/notificationsViewer.js';
++import { FONT } from '../../../base/common/font.js';
+ import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
+ import { workbenchInstantiationService } from './workbenchTestServices.js';
+ import { NotificationsCenter } from '../../browser/parts/notifications/notificationsCenter.js';

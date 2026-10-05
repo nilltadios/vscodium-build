@@ -1,0 +1,12 @@
+diff --git a/extensions/git/src/repository.ts b/extensions/git/src/repository.ts
+index bfd7f79e..a9ca9507 100644
+--- a/extensions/git/src/repository.ts
++++ b/extensions/git/src/repository.ts
+@@ -1517,6 +1517,7 @@ export class Repository implements Disposable {
+ 		}
+ 
+ 		const config = workspace.getConfiguration('git', Uri.file(this.root));
++		// Make sure that AI CoAuthor is off
+ 		const addAICoAuthor = config.get<'off' | 'chatAndAgent' | 'all'>('addAICoAuthor', 'off');
+ 
+ 		if (addAICoAuthor === 'off') {
