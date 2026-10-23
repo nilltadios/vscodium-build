@@ -46,3 +46,31 @@ Two bugs found while building the driver are fixed in the template and guarded b
 - the 1.141.2 copy of `port-rejects.mjs` ignored its reject-dir argument; the fixed copy now lives in the template;
 - staging deletions in the real index dropped them from the exported patch; `tree-check.sh` now catches this.
 Not run: a full build through `release.sh`, and the polling GUI smoke (it opens a window).
+
+## First real use: 1.142.0 → 1.143.1 (2026-10-22)
+
+From `uv run analysis/analyze_sessions.py` (session `e4bea901…`, first prompt only) and
+`versions/1.143.1/evidence/timings.jsonl`:
+
+| | 1.142.0 (by hand) | 1.143.1 (update.sh) |
+| --- | ---: | ---: |
+| Merge conflicts to resolve | 38 in 13 files | 55 in 13 files |
+| Request → build start | 26 min | ~9 min (02:55 → 03:04:00) |
+| Request → released and verified | ~32 min | ~15.5 min (→ 03:10:28) |
+| Whole turn, incl. replay regression | 33.3 min | 17.3 min |
+| API calls | 71 | 58 |
+| Port reruns until clean | — | 5 (≈45–60 s each) |
+
+What paid off: one command for workspace + port; every one of the 65 TS errors was real (typecheck against the new
+release's dependencies); `port-rules.mjs` handled the SDK removal and policy-watcher fork without any work from me;
+`release.sh` ran build → GUI smoke in one background job and the polling smoke passed first try; no shell hangs.
+Machine time (build 332 s + smoke 43 s) is unchanged, as expected.
+
+Still manual, so candidates for `port-rules.mjs`: OTel removal (`NullAgentHostOTelService` arguments, `_otelService`
+lines, OTel imports) was again written by hand, as in 1.142.0. New in the template from this run: transitive
+pruning in `prune-providers.mjs` (45 → 56 pruned modules and tests; it replaced deleting each one by hand), and the
+typed-factory form of the policy-watcher rule.
+Caveat: one run per method, with different conflict loads, so this is evidence, not a controlled benchmark.
+Done afterwards (2026-10-22): the OTel removal is now the `agent-host-otel` rule, and `finalize-port-1.143.1.mjs`
+shrank from 124 to 98 lines (the OTel conflicts became plain `'theirs'` picks). Both replays were verified; see
+`scripts/update/README.md`.

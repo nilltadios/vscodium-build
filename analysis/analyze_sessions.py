@@ -21,6 +21,8 @@ SESSIONS = {
     "1.141.0": "cca6dddc-d1c2-4c7a-b26c-a81790b5173b",
     "1.141.2": "14d3daa4-22c1-4852-b576-c5c06a67b3dc",
     "1.142.0": "abae530d-b2c5-4e9a-b5d3-e44015817aba",
+    # First with scripts/update/update.sh; only its first human prompt ("can you build new vscodium") is the update.
+    "1.143.1": ("e4bea901-7ccd-429d-8791-6256ad7930f4", 1),
 }
 
 
@@ -38,12 +40,18 @@ def is_human(record):
 
 
 def analyze(version, session_id):
+    # A session may be (id, n): count only up to its n-th human prompt's work, stopping before prompt n+1.
+    session_id, max_prompts = session_id if isinstance(session_id, tuple) else (session_id, None)
     records = []
     for line in (PROJECT / f"{session_id}.jsonl").read_text().splitlines():
         r = json.loads(line)
         if "timestamp" in r and r.get("type") in ("user", "assistant") and not r.get("isSidechain"):
             records.append(r)
     records.sort(key=ts)
+    if max_prompts is not None:
+        human = [i for i, r in enumerate(records) if is_human(r)]
+        if len(human) > max_prompts:
+            records = records[:human[max_prompts]]
 
     tool_inputs = {}
     usage = {}

@@ -16,3 +16,15 @@ for (const relative of ['node/copilot/copilotCustomizationCommandDisplay.ts']) r
 for (const file of remove) {
   if (fs.existsSync(file)) { fs.unlinkSync(file); console.log(path.relative(root, file)); }
 }
+// Then, until nothing changes, provider-folder modules and *.test.ts files that import a removed module
+// (1.143.1: saved-chat readers, the Copilot local-model bridge and their tests). Core modules and files with
+// conflict markers are left to finalize.
+const providerOrTest = /^(?:node\/(?:copilot|claude|codex)\/.*|test\/.*\.test)\.ts$/;
+const missingImport = f => !/^<<<<<<< /m.test(fs.readFileSync(f, 'utf8')) && [...fs.readFileSync(f, 'utf8').matchAll(/^import [^;]*?from ['"](\.[^'"]+)\.js['"]/gm)]
+  .some(m => !fs.existsSync(path.resolve(path.dirname(f), m[1] + '.ts')) && !fs.existsSync(path.resolve(path.dirname(f), m[1] + '.js')));
+for (let more = true; more;) {
+  more = false;
+  for (const file of walk(agent).filter(f => f.endsWith('.ts') && providerOrTest.test(path.relative(agent, f)))) {
+    if (missingImport(file)) { fs.unlinkSync(file); console.log(path.relative(root, file)); more = true; }
+  }
+}

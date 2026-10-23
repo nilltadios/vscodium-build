@@ -3,7 +3,7 @@
 // sides and handle what is new in that release. Exit 1 if a rule cannot run (e.g. unparsable package.json).
 import fs from 'node:fs';
 import path from 'node:path';
-import { project, update } from './port-lib.mjs';
+import { project, root, update } from './port-lib.mjs';
 
 let changed = 0;
 const rule = (name, file, fn) => { if (update(name, file, fn)) changed++; };
@@ -41,11 +41,55 @@ if (!policyFork) {
   // The fork's watcher factory takes the vendor name first; new upstream tests use the 3-argument shape
   // (1.141.2: two tests, 1.142.0: one).
   rule('policy-watcher-vendor-arg', 'src/vs/platform/policy/test/node/nativeManagedSettingsService.test.ts', s =>
-    s.replaceAll(', undefined, (_name, policies, callback) => {', ', undefined, (_vendorName, _name, policies, callback) => {'));
+    s.replaceAll(', undefined, (_name, policies, callback) => {', ', undefined, (_vendorName, _name, policies, callback) => {')
+      // 1.143.1: typed factory locals, (_productName, policies, callback) => ...
+      .replace(/: NativePolicyWatcherFactory = \((?!_vendorName)(\w+), (\w+), (\w+)\) =>/g, ': NativePolicyWatcherFactory = (_vendorName, $1, $2, $3) =>'));
 }
 
 // 22-osproxy-use-custom-lib: macOS universal-app globs name the forked proxy resolver (1.141.2, 1.142.0).
 rule('os-proxy-resolver-fork', 'build/darwin/create-universal-app.ts', s =>
   s.replaceAll('@vscode/os-proxy-resolver-darwin-', '@vscodium/os-proxy-resolver-darwin-'));
+
+// Agent-host OTel service: removed with the Copilot SDK (its module imports @github/copilot-sdk), so a finalize can
+// pick upstream's side and this strips what refers to it (hand-written in 1.142.0 and 1.143.1). Anything it does
+// not cover still fails the typecheck. Lines are dropped only when they mention the service itself.
+if (!fs.existsSync(path.join(root, 'src/vs/platform/agentHost/common/otel/agentHostOTelService.ts'))) {
+  const dropOtelLines = s => s.split('\n').filter(l => !/import .*agentHostOTelService\.js'|@IAgentHostOTelService |^\s*NullAgentHostOTelService,$/.test(l)).join('\n');
+  // Remove `this._otelService?.emitTurnTiming({ ... });` statements by brace matching.
+  const dropCalls = (s, start) => {
+    for (let a; (a = s.indexOf(start)) >= 0;) {
+      let i = a + start.length - 1, depth = 0;
+      for (; i < s.length; i++) { if (s[i] === '{' || s[i] === '(') depth++; else if (s[i] === '}' || s[i] === ')') { depth--; if (depth === 0 && s.startsWith(');', i)) break; } }
+      if (i >= s.length) throw new Error(`unbalanced ${start}`);
+      const lineStart = s.lastIndexOf('\n', a) + 1;
+      s = s.slice(0, lineStart) + s.slice(s.indexOf('\n', i) + 1);
+    }
+    return s;
+  };
+  // Imports from the OTel helper modules are dropped only when nothing else in the file uses their names.
+  const dropUnusedImports = (s, ...modules) => s.split('\n').filter(l => {
+    const m = /^import \{([^}]*)\} from '[^']*\/(?:[^/']+)\.js';$/.exec(l);
+    if (!m || !modules.some(mod => l.includes(`/${mod}.js'`))) return true;
+    const names = m[1].split(',').map(n => n.trim().replace(/^type /, '').split(' as ').pop()).filter(Boolean);
+    return names.some(n => s.split(n).length - 1 > 1);
+  }).join('\n');
+  rule('agent-host-otel', 'src/vs/platform/agentHost/node/protocolServerHandler.ts', s =>
+    dropUnusedImports(dropOtelLines(s).replaceAll('this._otelService?.diagnosticsEnabled', 'false'), 'agentHostTiming', 'chatUserInteraction'));
+  rule('agent-host-otel', 'src/vs/platform/agentHost/node/agentService.ts', dropOtelLines);
+  rule('agent-host-otel', 'src/vs/platform/agentHost/node/agentHostTelemetryReporter.ts', s =>
+    dropCalls(dropOtelLines(s), 'this._otelService?.emitTurnTiming(').replace(/this\._otelService\??\.enabled/g, 'false'));
+  // Tests: drop the tests that exercise the OTel bridge, then the service argument everywhere else.
+  rule('agent-host-otel', 'src/vs/platform/agentHost/test/node/protocolServerHandler.test.ts', s => {
+    let lines = s.split('\n');
+    for (let hit; (hit = lines.findIndex(l => l.includes('...NullAgentHostOTelService'))) >= 0;) {
+      let a = hit; while (a >= 0 && !/^\t+test\(/.test(lines[a])) a--;
+      if (a < 0) throw new Error('OTel test without an enclosing test(');
+      const end = lines.indexOf(lines[a].match(/^\t+/)[0] + '});', a);
+      lines.splice(a, end - a + 1 + (lines[end + 1] === '' ? 1 : 0));
+    }
+    s = dropOtelLines(lines.join('\n')).replaceAll(' NullAgentHostOTelService,', '');
+    return s.split('\n').filter(l => !/^import \{ type IAgentHostFirstResponseDiagnostic \} from/.test(l)).join('\n');
+  });
+}
 
 console.log(`Rules changed ${changed} file(s).`);

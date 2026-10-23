@@ -32,8 +32,8 @@ replay can find it.
 | --- | --- |
 | `update.sh` | create/resume a workspace, fetch, run `port.sh` |
 | `workspace/port.sh` | the rerunnable port pipeline and report |
-| `workspace/port-lib.mjs`, `port-rules.mjs` | finalize helpers; recurring resolutions (agent SDKs, policy-watcher fork + test factory, os-proxy-resolver globs) |
-| `workspace/merge-files.mjs`, `merge-from.sh`, `replay-port.sh`, `port-rejects.mjs`, `prune-providers.mjs` | rebase leftovers → three-way merge against the previous patched tree |
+| `workspace/port-lib.mjs`, `port-rules.mjs` | finalize helpers; recurring resolutions (agent SDKs, policy-watcher fork + test factory, os-proxy-resolver globs, agent-host OTel removal) |
+| `workspace/merge-files.mjs`, `merge-from.sh`, `replay-port.sh`, `port-rejects.mjs`, `prune-providers.mjs` | rebase leftovers → three-way merge against the previous patched tree; prune also removes provider modules and tests that import an already-removed module |
 | `workspace/port-deps.sh` | `npm ci --ignore-scripts` of the new lockfile in the builder, cached by lockfile hash |
 | `workspace/export-port.sh`, `tree-check.sh`, `port-report.mjs` | export, reproduce check, report |
 | `workspace/test-gui.sh`, `release.sh`, `write-status.mjs` | GUI smoke that polls up to 30 s; one-shot release; version-agnostic STATUS.md |
@@ -65,3 +65,9 @@ commands that cost the 1.142.0 session 15 minutes: an interpreter reading its pr
 (`python3 -` without heredoc, pipe or `<`), and `pgrep -f`/`pkill -f` whose pattern matches the command itself.
 Test: `~/.claude/hooks/test-guard-shell-hangs.sh` (37 cases including both verbatim incident commands, exit 0).
 Undo: restore `~/.claude/settings.json.bak-20261016T211238`.
+
+`verify-replay.sh 1.142.0 1.143.1` (2026-10-22, after OTel removal moved into `port-rules.mjs`): port clean, 0 TS
+errors, and the tree differs from the released 1.143.1 port in one file only. The released hand-written finalize
+deleted the saved-chat test loop (`advertises and routes saved chat reads with exact URI identity`) along with the two
+OTel tests in `protocolServerHandler.test.ts`; the rule removes just the two OTel tests. Test files are not shipped,
+so the 1.143.10001 AppImage is unaffected. The default replay (1.141.2 → 1.142.0) still passes all four checks.
