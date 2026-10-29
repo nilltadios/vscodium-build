@@ -5,8 +5,44 @@ Ports the local VSCodium build to a new VS Code release in one command, replacin
 `evidence/merge-files.txt`. Background and measurements: [analysis/SPEEDUP.md](../../analysis/SPEEDUP.md).
 
 ```bash
+bash scripts/update/check-upstreams.sh   # first, on every build request: VS Code release AND VSCodium master
 bash scripts/update/update.sh 1.142.0 1.143.0
 ```
+
+`check-upstreams.sh` compares the newest workspace with both upstreams (exit 0 current, 10 new VS Code release,
+11 VSCodium master moved, 12 both) and lists the VSCodium commits missing from the pin. `update.sh` refuses to
+create a workspace while VSCodium master differs from the pin unless you choose: `--vscodium-commit <sha>` (port
+onto it) or `--keep-vscodium-pin`. A VSCodium update without a new VS Code release is still a rebuild.
+
+### New VSCodium commit
+
+Our `patches/rebased/` are our own re-exports of VSCodium's patches. Carried forward, they would override every
+VSCodium revision of an existing patch; only new files (new patches, `product.json`, the removal JSONs) would get
+through. So when `--vscodium-commit` differs from the previous pin, `update.sh` reads the commit's
+`upstream/stable.json` and starts from VSCodium's patches instead:
+
+- targets `<prev>`: first builds `versions/<prev>-vscodium-<sha7>` in `vscodium-rebase` mode (VSCodium's patches
+  as they are, plus our local `user/` patches, no replay of our old port, no merge; local fixes in
+  `finalize-rebase-<prev>-<sha7>.mjs`), then ports from that workspace to `<new>` as usual;
+- targets `<new>`: the `<new>` workspace itself is created in `vscodium-rebase` mode;
+- anything else: stops.
+
+Per-version conflict picks depend on the patch lineage, so `finalize-port-<new>-<sha7>.mjs` wins over
+`finalize-port-<new>.mjs` when both exist. The rebase workspace is only typechecked, never built; the port's
+typecheck takes Electron typings from the nearest built workspace along the `from_dir` chain. When the new release
+needs a different Node, `update.sh` reuses a Containerfile from another workspace that pins that Node (tag and
+digest), keeping a `Containerfile.bak-<date>`.
+
+```bash
+bash scripts/update/update.sh 1.143.1 1.144.0 --vscodium-commit ca7f7b44b5e5c3faa663f6cdc043998f71936653 \
+  --workspace versions/1.144.0-vscodium-ca7f7b4 --release-version 1.144.00002
+```
+
+First run (2026-10-29): VSCodium ca7f7b4 on 1.143.1 applied with 0 rejected hunks and needed one local fix (an
+unused private field); the port to 1.144.0 had 11 conflicts in 6 files (`finalize-port-1.144.0-ca7f7b4.mjs`).
+Checks that VSCodium's revisions are now in effect: `workbench.modernUI` defaults to `false`, and
+`extensions/theme-defaults/package.nls.json` names VSCodium instead of Visual Studio (the be70704 port has 4
+"Visual Studio" mentions there, this one 0).
 
 This creates `versions/1.143.0`. It copies the previous workspace's generic scripts (skipping version-named
 one-offs and backups), overlays `scripts/update/workspace/`, reflinks caches and sources, fetches the new pins,

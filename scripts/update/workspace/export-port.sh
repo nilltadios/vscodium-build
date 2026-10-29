@@ -17,6 +17,10 @@ index=$(mktemp); trap 'rm -f "$index"' EXIT
 GIT_INDEX_FILE=$index git read-tree "$baseline"
 GIT_INDEX_FILE=$index git add -A -- . ':!*.rej' ':!*.orig'
 GIT_INDEX_FILE=$index git diff --binary --cached "$baseline" > "$out"
-test -s "$out"
+if [[ ! -s $out ]]; then
+  # A VSCodium rebase whose patches need no local fixes has nothing to export.
+  [[ $(jq -r '.mode // "port"' "$project/port.json") == vscodium-rebase ]] || { printf 'Empty port patch\n' >&2; exit 1; }
+  rm -f "$out"
+fi
 find "$project/patches/rebased" -type f -print0 | sort -z | xargs -0 sha256sum > "$project/evidence/port-patches.sha256"
-printf 'Exported %s (%s files)\n' "$out" "$(grep -c '^diff --git' "$out")"
+if [[ -f $out ]]; then printf 'Exported %s (%s files)\n' "$out" "$(grep -c '^diff --git' "$out")"; else printf 'Exported nothing: no local fixes on top of the patch set.\n'; fi

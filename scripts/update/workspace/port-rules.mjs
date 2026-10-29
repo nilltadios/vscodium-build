@@ -92,4 +92,9 @@ if (!fs.existsSync(path.join(root, 'src/vs/platform/agentHost/common/otel/agentH
   });
 }
 
+// Session comparison metadata is only read by the removed provider agents, so taking upstream's agentService.ts
+// import list leaves it unused (1.143.1, 1.144.0). Dropped only while the import is its sole mention.
+rule('unused-session-comparison-import', 'src/vs/platform/agentHost/node/agentService.ts', s =>
+  s.split('readSessionComparisonMetadata').length === 2 ? s.replace(' readSessionComparisonMetadata,', '') : s);
+
 console.log(`Rules changed ${changed} file(s).`);

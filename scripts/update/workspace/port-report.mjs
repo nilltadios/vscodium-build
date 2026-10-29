@@ -7,8 +7,13 @@ const out = path.join(project, 'evidence/port');
 const read = name => { try { return fs.readFileSync(path.join(out, name), 'utf8'); } catch { return ''; } };
 const lines = text => text.split('\n').filter(Boolean);
 const config = JSON.parse(fs.readFileSync(path.join(project, 'config.json'), 'utf8'));
-const prev = JSON.parse(fs.readFileSync(path.join(project, 'port.json'), 'utf8')).from;
+const port = JSON.parse(fs.readFileSync(path.join(project, 'port.json'), 'utf8'));
+const prev = port.from;
 const next = config.vscode_version;
+const rebase = port.mode === 'vscodium-rebase';
+const pinned = `finalize-port-${next}-${config.vscodium_commit.slice(0, 7)}.mjs`;
+const finalizeName = rebase ? `finalize-rebase-${next}-${config.vscodium_commit.slice(0, 7)}.mjs`
+  : fs.existsSync(path.join(project, 'scripts', pinned)) ? pinned : `finalize-port-${next}.mjs`;
 const walk = dir => fs.existsSync(dir)
   ? fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]) : [];
 const hunks = dir => walk(path.join(project, dir)).filter(f => f.endsWith('.rej'))
@@ -30,16 +35,18 @@ if (tsErrors.length) problems.push(`${tsErrors.length} TS error(s)`);
 if (steps.typecheck?.exit !== '0') problems.push('typecheck did not pass');
 
 const r = [];
-r.push(`# Port ${prev} -> ${next}: ${problems.length ? 'NOT CLEAN' : 'clean'}`, '');
+r.push(rebase
+  ? `# VSCodium ${config.vscodium_commit.slice(0, 7)} patches on VS Code ${next} (rebase from ${prev}'s workspace): ${problems.length ? 'NOT CLEAN' : 'clean'}`
+  : `# Port ${prev} -> ${next}: ${problems.length ? 'NOT CLEAN' : 'clean'}`, '');
 r.push(`Tree: ${read('port-tree.txt').trim()}`, '');
-r.push(`- Rebase of ${prev}'s patches: ${hunks('evidence/rejects')} rejected hunk(s); replay of the ${prev} port patch: ${hunks(`evidence/rejects-port-${prev}`)}.`);
+r.push(rebase ? `- VSCodium's patches plus local user/ patches: ${hunks('evidence/rejects')} rejected hunk(s).` : `- Rebase of ${prev}'s patches: ${hunks('evidence/rejects')} rejected hunk(s); replay of the ${prev} port patch: ${hunks(`evidence/rejects-port-${prev}`)}.`);
 r.push(`- port-rejects.mjs: ${count('APPLIED')} applied, ${count('UNRESOLVED')} unresolved, ${count('MISSING')} missing-file.`);
 r.push(`- Three-way merge: ${merge.length} file(s), ${merge.reduce((n, [c]) => n + (Number(c) > 0 ? Number(c) : 0), 0)} conflict(s)` +
   (merge.some(([c]) => !/^\d+$/.test(c)) ? `; ${merge.filter(([c]) => !/^\d+$/.test(c)).map(([c, f]) => `${c} ${f}`).join(', ')}` : '') + '.');
 const unresolvedPkg = rejects.filter(l => /^UNRESOLVED (\S*\/)?package\.json:/.test(l)).length;
 if (unresolvedPkg) r.push(`- package.json hunks left to port-rules.mjs and the lock refresh: ${unresolvedPkg}.`);
 r.push(`- Pruned provider modules: ${lines(read('prune.txt')).length}. Rules: ${lines(read('rules.txt')).filter(l => l.startsWith('RULE')).length} change(s).`);
-r.push(`- finalize-port-${next}.mjs: ${finalizeExit === 'missing' ? 'not written yet' : finalizeExit === '0' ? 'ok' : `FAILED (exit ${finalizeExit})`}.`);
+r.push(`- ${finalizeName}: ${finalizeExit === 'missing' ? 'not written yet' : finalizeExit === '0' ? 'ok' : `FAILED (exit ${finalizeExit})`}.`);
 r.push(`- Dependencies: ${steps.deps?.exit === '0' ? lines(read('deps.txt')).at(-1) : `install exit ${steps.deps?.exit ?? 'not run'}`}.`);
 r.push(`- Typecheck: ${steps.typecheck ? (steps.typecheck.exit === 'skipped' ? 'skipped (conflict markers)' : `exit ${steps.typecheck.exit}, ${tsErrors.length} error(s)`) : 'not run'}.`);
 r.push('', `Steps (s): ${Object.entries(steps).map(([n, s]) => `${n} ${s.seconds}`).join(', ')}.`);
@@ -47,7 +54,7 @@ if (finalizeExit && !['0', 'missing'].includes(finalizeExit)) {
   r.push('', '## finalize error', '', '```', ...lines(read('finalize.txt')).filter(l => /Error|at file:/.test(l)).slice(0, 6), '```');
 }
 if (markers.length) {
-  r.push('', '## Conflicts to resolve in finalize-port-' + next + '.mjs', '');
+  r.push('', `## Conflicts to resolve in ${finalizeName}`, '');
   const tree = read('port-tree.txt').trim();
   for (const file of markers) {
     const n = (fs.readFileSync(path.join(tree, file), 'utf8').match(/^<<<<<<< /gm) ?? []).length;
@@ -58,6 +65,6 @@ if (tsErrors.length) r.push('', '## TS errors (first 20)', '', '```', ...tsError
 for (const name of Object.keys(steps).filter(n => !['0', 'skipped', 'missing'].includes(steps[n].exit) && !['finalize', 'typecheck'].includes(n))) {
   r.push('', `## ${name} output (last 8 lines)`, '', '```', ...lines(read(`${name}.txt`)).slice(-8), '```');
 }
-r.push('', problems.length ? `Not clean: ${problems.join('; ')}. Edit scripts/finalize-port-${next}.mjs (or port-rules.mjs for a recurring fix) and rerun: bash scripts/port.sh` : 'Clean: port.sh exports user/zzzz-port-' + next + '.patch and probes the patch set.');
+r.push('', problems.length ? `Not clean: ${problems.join('; ')}. Edit scripts/${finalizeName} (or port-rules.mjs for a recurring fix) and rerun: bash scripts/port.sh` : 'Clean: port.sh exports user/zzzz-port-' + next + '.patch and probes the patch set.');
 console.log(r.join('\n'));
 process.exit(problems.length ? 1 : 0);
