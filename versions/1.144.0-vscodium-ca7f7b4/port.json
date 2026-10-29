@@ -1,0 +1,7 @@
+{
+  "from": "1.143.1",
+  "from_dir": "../1.143.1-vscodium-ca7f7b4",
+  "mode": "port",
+  "created_at": "2026-10-29T12:27:40Z",
+  "created_by": "scripts/update/update.sh"
+}

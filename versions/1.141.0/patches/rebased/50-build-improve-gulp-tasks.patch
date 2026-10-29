@@ -1,0 +1,27 @@
+diff --git a/build/gulpfile.vscode.ts b/build/gulpfile.vscode.ts
+index f46283bc..98e28a14 100644
+--- a/build/gulpfile.vscode.ts
++++ b/build/gulpfile.vscode.ts
+@@ -617,6 +617,10 @@ BUILD_TARGETS.forEach(buildTarget => {
+ 			compileNonNativeExtensionsBuildTask,
+ 			compileCopilotExtensionBuildTask,
+ 			compileExtensionMediaBuildTask,
++			));
++			task.task(prepackTask);
++
++			const packingTask = task.define(`vscode${dashed(platform)}${dashed(arch)}${dashed(minified)}-packing`, task.series(
+ 			writeISODate('out-build'),
+ 			esbuildBundleTask,
+ 			vscodeTaskCI
+diff --git a/build/lib/esbuild.ts b/build/lib/esbuild.ts
+index ab0a7021..27ae2de0 100644
+--- a/build/lib/esbuild.ts
++++ b/build/lib/esbuild.ts
+@@ -54,7 +54,6 @@ export function runEsbuildBundle(outDir: string, minify: boolean, nls: boolean,
+ 		const args = [scriptPath, 'bundle', '--out', outDir, '--target', target];
+ 		if (minify) {
+ 			args.push('--minify');
+-			args.push('--mangle-privates');
+ 		}
+ 		if (nls) {
+ 			args.push('--nls');

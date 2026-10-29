@@ -4,3 +4,14 @@
 /logs/
 /dist/
 /evidence/
+
+# Version workspaces: track pins, patches, scripts and assets; keep checkouts,
+# builds, caches, logs and outputs local (CI regenerates them).
+/versions/*/sources/
+/versions/*/work/
+/versions/*/cache/
+/versions/*/logs/
+/versions/*/dist/
+/versions/*/evidence/*
+!/versions/*/evidence/port-patches.sha256
+/versions/**/*.bak-*

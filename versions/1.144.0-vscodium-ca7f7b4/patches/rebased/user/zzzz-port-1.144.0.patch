@@ -1,0 +1,1874 @@
+diff --git a/build/gulpfile.extensions.ts b/build/gulpfile.extensions.ts
+index 2d120f6e..d850075b 100644
+--- a/build/gulpfile.extensions.ts
++++ b/build/gulpfile.extensions.ts
+@@ -23,6 +23,7 @@ import { createTsgoStream, spawnTsgo } from './lib/tsgo.ts';
+ import { getCompilerOptionsFromTsConfig } from './lib/tsconfigUtils.ts';
+ import * as util from './lib/util.ts';
+ import watcher from './lib/watch/index.ts';
++import product from '../product.json' with { type: 'json' };
+ import { BuildLifecycle } from './lib/buildEvents.ts';
+ 
+ const root = path.dirname(import.meta.dirname);
+diff --git a/build/lib/nodeCompileCache.ts b/build/lib/nodeCompileCache.ts
+index 66dfaf4c..10a3dca1 100644
+--- a/build/lib/nodeCompileCache.ts
++++ b/build/lib/nodeCompileCache.ts
+@@ -9,7 +9,7 @@ import * as os from 'os';
+ import * as path from 'path';
+ 
+ const nodeCompileCacheKinds = ['main', 'extension-host', 'shared-process', 'pty-host', 'agent-host'] as const;
+-const nodeCompileCacheTagPattern = /^v\d+\.\d+\.\d+-(arm64|x64)-[0-9a-f]{8}$/;
++const nodeCompileCacheTagPattern = /^v\d+\.\d+\.\d+-(arm64|x64)-[0-9a-f]{8}(?:-\d+)?$/;
+ const nodeCompileCacheEntryPattern = /^[0-9a-f]{8}$/;
+ 
+ export interface INodeCompileCacheProduct {
+@@ -122,7 +122,7 @@ export async function validateNodeCompileCache(rootDirectory: string, architectu
+ 
+ function runCacheGeneration(application: string, cacheDirectory: string, env: NodeJS.ProcessEnv): Promise<void> {
+ 	return new Promise((resolve, reject) => {
+-		const child = cp.spawn(application, [], {
++		const child = cp.spawn(application, ['--no-sandbox', '--ozone-platform=headless'], {
+ 			env,
+ 			stdio: ['ignore', 'pipe', 'pipe']
+ 		});
+diff --git a/build/package-lock.json b/build/package-lock.json
+index 2a950cfe..db866861 100644
+--- a/build/package-lock.json
++++ b/build/package-lock.json
+@@ -1542,16 +1542,6 @@
+         "@types/node": "*"
+       }
+     },
+-    "node_modules/@types/graceful-fs": {
+-      "version": "4.1.9",
+-      "resolved": "https://registry.npmjs.org/@types/graceful-fs/-/graceful-fs-4.1.9.tgz",
+-      "integrity": "sha512-olP3sd1qOEe5dXTSaFvQG+02VdRXcdytWLAZsAq1PecU8uqQAhkrnbli7DagjtXKW/Bl7YJbUsa8MPcuc8LHEQ==",
+-      "dev": true,
+-      "license": "MIT",
+-      "dependencies": {
+-        "@types/node": "*"
+-      }
+-    },
+     "node_modules/@types/gulp": {
+       "version": "4.0.18",
+       "resolved": "https://registry.npmjs.org/@types/gulp/-/gulp-4.0.18.tgz",
+@@ -4835,8 +4825,8 @@
+       "version": "4.8.4",
+       "resolved": "https://registry.npmjs.org/node-gyp-build/-/node-gyp-build-4.8.4.tgz",
+       "integrity": "sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==",
++      "devOptional": true,
+       "license": "MIT",
+-      "optional": true,
+       "bin": {
+         "node-gyp-build": "bin.js",
+         "node-gyp-build-optional": "optional.js",
+diff --git a/build/package.json b/build/package.json
+index 528d0f23..d1a88542 100644
+--- a/build/package.json
++++ b/build/package.json
+@@ -70,7 +70,6 @@
+     "test": "node --test '{lib,next,agent-sdk,codex}/**/*.test.ts' '../.eslint-plugin-local/tests/*.test.ts'"
+   },
+   "optionalDependencies": {
+-    "tree-sitter": "^0.22.4",
+     "tree-sitter-typescript": "^0.23.2",
+     "vscode-gulp-watch": "^5.0.3"
+   },
+diff --git a/package-lock.json b/package-lock.json
+index 9f76d5c8..ebbfc700 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -10,9 +10,7 @@
+       "hasInstallScript": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@anthropic-ai/sdk": "^0.82.0",
+         "@devcontainers/cli": "0.88.0",
+-        "@github/copilot-sdk": "1.0.27-unstable.40031404408.gba6c003",
+         "@hpke/core": "^1.9.0",
+         "@microsoft/1ds-core-js": "^3.2.13",
+         "@microsoft/1ds-post-js": "^3.2.13",
+@@ -24,7 +22,6 @@
+         "@parcel/watcher": "^2.5.6",
+         "@types/semver": "^7.5.8",
+         "@vscode/codicons": "^0.0.46-47",
+-        "@vscode/copilot-api": "^0.5.2",
+         "@vscode/deviceid": "^0.1.1",
+         "@vscode/diff": "0.0.2-7",
+         "@vscode/fs-copyfile": "2.0.0",
+@@ -65,7 +62,6 @@
+         "libsodium-wrappers": "^0.8.4",
+         "minimist": "^1.2.8",
+         "native-is-elevated": "0.9.0",
+-        "native-keymap": "^3.3.5",
+         "node-addon-api": "^6.0.0",
+         "node-pty": "^1.2.0-beta.18",
+         "open": "^10.1.2",
+@@ -83,9 +79,7 @@
+         "zod": "^4.4.3"
+       },
+       "devDependencies": {
+-        "@anthropic-ai/claude-agent-sdk": "0.3.304",
+         "@eslint/compat": "^2.1.0",
+-        "@openai/codex": "0.163.0",
+         "@playwright/cli": "^0.1.9",
+         "@playwright/test": "^1.61.1",
+         "@stylistic/eslint-plugin": "^5.10.0",
+@@ -190,175 +184,6 @@
+         "windows-foreground-love": "0.6.1"
+       }
+     },
+-    "node_modules/@anthropic-ai/claude-agent-sdk": {
+-      "version": "0.3.304",
+-      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.304.tgz",
+-      "integrity": "sha512-Ivkt7/UAkATibzvqT31eY71lAp7YdPzfbKDpmbHN9+AQWFh/Ac6tYkL2J1sipJ7tU4IK48w0YxuRW9aI//veFA==",
+-      "dev": true,
+-      "license": "SEE LICENSE IN README.md",
+-      "engines": {
+-        "node": ">=18.0.0"
+-      },
+-      "optionalDependencies": {
+-        "@anthropic-ai/claude-agent-sdk-darwin-arm64": "0.3.304",
+-        "@anthropic-ai/claude-agent-sdk-darwin-x64": "0.3.304",
+-        "@anthropic-ai/claude-agent-sdk-linux-arm64": "0.3.304",
+-        "@anthropic-ai/claude-agent-sdk-linux-arm64-musl": "0.3.304",
+-        "@anthropic-ai/claude-agent-sdk-linux-x64": "0.3.304",
+-        "@anthropic-ai/claude-agent-sdk-linux-x64-musl": "0.3.304",
+-        "@anthropic-ai/claude-agent-sdk-win32-arm64": "0.3.304",
+-        "@anthropic-ai/claude-agent-sdk-win32-x64": "0.3.304"
+-      },
+-      "peerDependencies": {
+-        "@anthropic-ai/sdk": ">=0.93.0",
+-        "@modelcontextprotocol/sdk": "^1.29.0",
+-        "zod": "^4.0.0"
+-      }
+-    },
+-    "node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64": {
+-      "version": "0.3.304",
+-      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-darwin-arm64/-/claude-agent-sdk-darwin-arm64-0.3.304.tgz",
+-      "integrity": "sha512-DMKedNHwWt1bFOINlYAebabk1ZH4DLvu59GIg6c/GFZjdpLQKn0IOVQzLGo28XJPMRQNVcZ3Hqbv5WeS63kF6w==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "dev": true,
+-      "license": "SEE LICENSE IN LICENSE.md",
+-      "optional": true,
+-      "os": [
+-        "darwin"
+-      ]
+-    },
+-    "node_modules/@anthropic-ai/claude-agent-sdk-darwin-x64": {
+-      "version": "0.3.304",
+-      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-darwin-x64/-/claude-agent-sdk-darwin-x64-0.3.304.tgz",
+-      "integrity": "sha512-n/OleF2p7HK4NgvJmmDXkbcOzooVJZfj4IGZKTR0Siljodvk9e0M69TTTJfJK5dph9cczOlqdXlgKeeV4TQ0lA==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "dev": true,
+-      "license": "SEE LICENSE IN LICENSE.md",
+-      "optional": true,
+-      "os": [
+-        "darwin"
+-      ]
+-    },
+-    "node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64": {
+-      "version": "0.3.304",
+-      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-arm64/-/claude-agent-sdk-linux-arm64-0.3.304.tgz",
+-      "integrity": "sha512-xZtsRLVql1xtiAHhAX4l5ssMYN4r9hVW407+uazPajiVCKCvobOuQ2NAB7/QmKcRgiF18uWf1wluHT9gKZ0FJA==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+-      "license": "SEE LICENSE IN LICENSE.md",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64-musl": {
+-      "version": "0.3.304",
+-      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-arm64-musl/-/claude-agent-sdk-linux-arm64-musl-0.3.304.tgz",
+-      "integrity": "sha512-cV6+7CzCL+m2DdjrQK771vHunGAOz/AKanPUHaEMqQF5riLL3UvK1/TD1VjaseDzQdzeD9F1qJm1aUP1TtyhzA==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+-      "license": "SEE LICENSE IN LICENSE.md",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@anthropic-ai/claude-agent-sdk-linux-x64": {
+-      "version": "0.3.304",
+-      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-x64/-/claude-agent-sdk-linux-x64-0.3.304.tgz",
+-      "integrity": "sha512-72SZA+TYtrDCXM7j8GNaoUpZrtysxw8FiunRv6C59wJRkhpxzlYLGrjser7vX6ivK+LiBkVU/V3wzEyfJqB4sA==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+-      "license": "SEE LICENSE IN LICENSE.md",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl": {
+-      "version": "0.3.304",
+-      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-linux-x64-musl/-/claude-agent-sdk-linux-x64-musl-0.3.304.tgz",
+-      "integrity": "sha512-cNZvVaVw5ly/sduYj+c2ekrqnpzqUBLsQapvpXhVFy6hjdwXhj8gCNmr5Wta5tlTrNEo0C2kxvfFm+GjD7Tcvg==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+-      "license": "SEE LICENSE IN LICENSE.md",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@anthropic-ai/claude-agent-sdk-win32-arm64": {
+-      "version": "0.3.304",
+-      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-win32-arm64/-/claude-agent-sdk-win32-arm64-0.3.304.tgz",
+-      "integrity": "sha512-qzV7j4KP3QAWY5b1oOINNVoZzEFZy+Dbr4MBGoQpY2gycmyqEswhIP7SE0Q2meq8/WoVusLVNQ8irNwT/GRz9A==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "dev": true,
+-      "license": "SEE LICENSE IN LICENSE.md",
+-      "optional": true,
+-      "os": [
+-        "win32"
+-      ]
+-    },
+-    "node_modules/@anthropic-ai/claude-agent-sdk-win32-x64": {
+-      "version": "0.3.304",
+-      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk-win32-x64/-/claude-agent-sdk-win32-x64-0.3.304.tgz",
+-      "integrity": "sha512-3vzbMxaG//37gbuViXx46B5OKpIaPGxESQgELAqtoxLRR/4iy+ANjSQ1HeuCpLkLSJzesoQ2Ss3U5XSeHeCLCA==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "dev": true,
+-      "license": "SEE LICENSE IN LICENSE.md",
+-      "optional": true,
+-      "os": [
+-        "win32"
+-      ]
+-    },
+-    "node_modules/@anthropic-ai/sdk": {
+-      "version": "0.82.0",
+-      "resolved": "https://registry.npmjs.org/@anthropic-ai/sdk/-/sdk-0.82.0.tgz",
+-      "integrity": "sha512-xdHTjL1GlUlDugHq/I47qdOKp/ROPvuHl7ROJCgUQigbvPu7asf9KcAcU1EqdrP2LuVhEKaTs7Z+ShpZDRzHdQ==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "json-schema-to-ts": "^3.1.1"
+-      },
+-      "bin": {
+-        "anthropic-ai-sdk": "bin/cli"
+-      },
+-      "peerDependencies": {
+-        "zod": "^3.25.0 || ^4.0.0"
+-      },
+-      "peerDependenciesMeta": {
+-        "zod": {
+-          "optional": true
+-        }
+-      }
+-    },
+     "node_modules/@apidevtools/json-schema-ref-parser": {
+       "version": "11.9.3",
+       "resolved": "https://registry.npmjs.org/@apidevtools/json-schema-ref-parser/-/json-schema-ref-parser-11.9.3.tgz",
+@@ -1162,155 +987,6 @@
+         "node": "^20.19.0 || ^22.13.0 || >=24"
+       }
+     },
+-    "node_modules/@github/copilot-sdk": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk/-/copilot-sdk-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-WPuh3q1gV7h02W2riOyx4AD0dqGY8QKExd2Fwv3aiHevpSPTn0mHAuIPCSOvNoy14LxBJ3ViBOORHEAucClX2A==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "koffi": "3.2.1",
+-        "vscode-jsonrpc": "8.2.1",
+-        "zod": "4.3.6"
+-      },
+-      "engines": {
+-        "node": "^20.19.0 || >=22.12.0"
+-      },
+-      "optionalDependencies": {
+-        "@github/copilot-sdk-darwin-arm64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-darwin-x64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-linux-arm64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-linux-x64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-linuxmusl-arm64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-linuxmusl-x64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-win32-arm64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-win32-x64": "1.0.27-unstable.40031404408.gba6c003"
+-      }
+-    },
+-    "node_modules/@github/copilot-sdk-darwin-arm64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-darwin-arm64/-/copilot-sdk-darwin-arm64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-QTre6C8lPpx1AZ1ZVc+XUUKGO9yoK259/rFwAsq7dNzjTUlMDX0zlgu1jx5cwEX7IeM37LDAVVnMYytvrA+W7Q==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "darwin"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-darwin-x64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-darwin-x64/-/copilot-sdk-darwin-x64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-N8Ts8b5QkVADH9gBbpYzukBikly3Q5TLGx73tGNv3WBzpsCRZsp4nudS/F/9aC6EbKpXUlIm6RYJPHWCcYe88g==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "darwin"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-linux-arm64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-linux-arm64/-/copilot-sdk-linux-arm64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-0SaRSB7zpPPmVUqtjcia3GoX3uBIKgwYZcBgVSEam2z8yUpUWcf6FNsav5XkB8VDJe7W0GVZh0UzvTIVGPqK4g==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "libc": [
+-        "glibc"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-linux-x64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-linux-x64/-/copilot-sdk-linux-x64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-6Rk0wqvhN+TE/1TgrBQogNy7OnHiMJnbhV8lzuHbQ/O4gRst74W3dMwFuIBukK9Z1CgaSURFd8zoJWBelLe1iw==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "libc": [
+-        "glibc"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-linuxmusl-arm64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-linuxmusl-arm64/-/copilot-sdk-linuxmusl-arm64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-ZmpHEbYCY8QufCBI6NEl04G1jEYR15pIAGzKd9PhuWJr6cIDhhzOB4970l9Ct3p26TtmfqFjSKyZfrZQW6YV1w==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "libc": [
+-        "musl"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-linuxmusl-x64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-linuxmusl-x64/-/copilot-sdk-linuxmusl-x64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-APvrYK5sFpozDezVw5sd/rec1P/oRQ01HWH/i1H9jptQ40A2vKiqDh5524+cWMh1wjnEMpm/YeMC2xycsT0WUA==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "libc": [
+-        "musl"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-win32-arm64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-win32-arm64/-/copilot-sdk-win32-arm64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-nhuYKYmZEzJCwyBlREPmAc93K/YhX0y6xpTEn6wmToxGUVZ1oMml+7hcedkdc0xiPExoocMTtEc/dqVBcF07Tw==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "win32"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-win32-x64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-win32-x64/-/copilot-sdk-win32-x64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-eZfFpxxqk5qMcSkRdmeYKfLx8l+CbXE8Xbsl7C6zkaODaVKIopmVntHCPjKdd+luP5Q0VL2Zc2Ss/EzdlLsONg==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "win32"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk/node_modules/zod": {
+-      "version": "4.3.6",
+-      "resolved": "https://registry.npmjs.org/zod/-/zod-4.3.6.tgz",
+-      "integrity": "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==",
+-      "license": "MIT",
+-      "funding": {
+-        "url": "https://github.com/sponsors/colinhacks"
+-      }
+-    },
+     "node_modules/@gulp-sourcemaps/identity-map": {
+       "version": "2.0.1",
+       "resolved": "https://registry.npmjs.org/@gulp-sourcemaps/identity-map/-/identity-map-2.0.1.tgz",
+@@ -2294,135 +1970,6 @@
+         "@octokit/openapi-types": "^25.1.0"
+       }
+     },
+-    "node_modules/@openai/codex": {
+-      "version": "0.163.0",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.163.0.tgz",
+-      "integrity": "sha512-HNd7vR9oTK6M2ikxFnvNDCdYUgAsyo9VVnd5KnEd2ON0GYI++7MiX9XNPUkhtdgGKFPsWS+CEppQ1UU63uVhUw==",
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "bin": {
+-        "codex": "bin/codex.js"
+-      },
+-      "engines": {
+-        "node": ">=16"
+-      },
+-      "optionalDependencies": {
+-        "@openai/codex-darwin-arm64": "npm:@openai/codex@0.163.0-darwin-arm64",
+-        "@openai/codex-darwin-x64": "npm:@openai/codex@0.163.0-darwin-x64",
+-        "@openai/codex-linux-arm64": "npm:@openai/codex@0.163.0-linux-arm64",
+-        "@openai/codex-linux-x64": "npm:@openai/codex@0.163.0-linux-x64",
+-        "@openai/codex-win32-arm64": "npm:@openai/codex@0.163.0-win32-arm64",
+-        "@openai/codex-win32-x64": "npm:@openai/codex@0.163.0-win32-x64"
+-      }
+-    },
+-    "node_modules/@openai/codex-darwin-arm64": {
+-      "name": "@openai/codex",
+-      "version": "0.163.0-darwin-arm64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.163.0-darwin-arm64.tgz",
+-      "integrity": "sha512-i7Dzk2a5aGmuGM9aNZgaUVTojZ/4bc5lRfosz++Y7X2BGhDkz+cySgbD+NYS1pOxfm0VEbLi9PZ3pAulI4kchw==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "darwin"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+-    "node_modules/@openai/codex-darwin-x64": {
+-      "name": "@openai/codex",
+-      "version": "0.163.0-darwin-x64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.163.0-darwin-x64.tgz",
+-      "integrity": "sha512-Ioj7h+B1ME9ZU1PH1ATfvFV5DiototEpFFaSSbg3kfDifB9djhl5fcJ++g5mpcL/+uVbcnReei+RiSXEx8o+kw==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "darwin"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+-    "node_modules/@openai/codex-linux-arm64": {
+-      "name": "@openai/codex",
+-      "version": "0.163.0-linux-arm64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.163.0-linux-arm64.tgz",
+-      "integrity": "sha512-IH2/R+4OarjGvsAf1ll3fdyLwrPgYLl3uzp6u9CyD9sj2Lw+ViDSe3QBZVHdcHJs0eIiZFg6Wprcuy4CRZaUGw==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+-    "node_modules/@openai/codex-linux-x64": {
+-      "name": "@openai/codex",
+-      "version": "0.163.0-linux-x64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.163.0-linux-x64.tgz",
+-      "integrity": "sha512-uwRaOsrYogLQhcxAM/GoeWrw0QIWEMRo7c9gM8sKAviVkZQHlu9kRLJ5PkufbV+ABGjyZgIwiFdJ0LCJ0N6e8w==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+-    "node_modules/@openai/codex-win32-arm64": {
+-      "name": "@openai/codex",
+-      "version": "0.163.0-win32-arm64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.163.0-win32-arm64.tgz",
+-      "integrity": "sha512-QnLn3gR2dExcdTThE/HAo5BrUq0/C8zDGQ0UZL3hNzfqt9ZklT6jGTyt8JhDyNZX4uSB4HhcJtbcOWucZGC0VQ==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "win32"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+-    "node_modules/@openai/codex-win32-x64": {
+-      "name": "@openai/codex",
+-      "version": "0.163.0-win32-x64",
+-      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.163.0-win32-x64.tgz",
+-      "integrity": "sha512-QQGQ/q9dCJ5C5jqhgFrwycpWG3szIyFNThMiKl6hYtu6N/eM3Qd7StesgnCFAfzVED8IkE3N3oH71szzcludqw==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "dev": true,
+-      "license": "Apache-2.0",
+-      "optional": true,
+-      "os": [
+-        "win32"
+-      ],
+-      "engines": {
+-        "node": ">=16"
+-      }
+-    },
+     "node_modules/@opentelemetry/api": {
+       "version": "1.0.3",
+       "resolved": "https://registry.npmjs.org/@opentelemetry/api/-/api-1.0.3.tgz",
+diff --git a/package.json b/package.json
+index fa883292..3da3bd6f 100644
+--- a/package.json
++++ b/package.json
+@@ -93,9 +93,7 @@
+     "reauth-feed": "artifacts-npm-credprovider --force"
+   },
+   "dependencies": {
+-    "@anthropic-ai/sdk": "^0.82.0",
+     "@devcontainers/cli": "0.88.0",
+-    "@github/copilot-sdk": "1.0.27-unstable.40031404408.gba6c003",
+     "@hpke/core": "^1.9.0",
+     "@microsoft/1ds-core-js": "^3.2.13",
+     "@microsoft/1ds-post-js": "^3.2.13",
+@@ -107,7 +105,6 @@
+     "@parcel/watcher": "^2.5.6",
+     "@types/semver": "^7.5.8",
+     "@vscode/codicons": "^0.0.46-47",
+-    "@vscode/copilot-api": "^0.5.2",
+     "@vscode/deviceid": "^0.1.1",
+     "@vscode/diff": "0.0.2-7",
+     "@vscode/fs-copyfile": "2.0.0",
+@@ -147,7 +144,7 @@
+     "libsodium-wrappers": "^0.8.4",
+     "minimist": "^1.2.8",
+     "native-is-elevated": "0.9.0",
+-    "native-keymap": "^3.3.5",
++    "@vscodium/native-keymap": "3.3.9-260952",
+     "node-addon-api": "^6.0.0",
+     "node-pty": "^1.2.0-beta.18",
+     "open": "^10.1.2",
+@@ -165,9 +162,7 @@
+     "zod": "^4.4.3"
+   },
+   "devDependencies": {
+-    "@anthropic-ai/claude-agent-sdk": "0.3.304",
+     "@eslint/compat": "^2.1.0",
+-    "@openai/codex": "0.163.0",
+     "@playwright/cli": "^0.1.9",
+     "@playwright/test": "^1.61.1",
+     "@stylistic/eslint-plugin": "^5.10.0",
+@@ -294,7 +289,7 @@
+     "foundry-local-sdk@2.0.1": true,
+     "kerberos@2.1.1": true,
+     "koffi@3.2.1": false,
+-    "native-keymap@3.3.9": true,
++    "@vscodium/native-keymap@3.3.9-260952": true,
+     "protobufjs@7.6.5": false,
+     "native-is-elevated@0.9.0": true,
+     "node-pty@1.2.0-beta.18": true,
+@@ -318,6 +313,5 @@
+     "husky": false,
+     "@vscode/windows-ca-certs@0.3.4": true,
+     "@vscode/windows-process-tree@0.8.0": true
+-  },
+-  "copilotRuntimeVersion": "1.0.103-unstable.r40031404408.gba6c003"
++  }
+ }
+diff --git a/remote/package-lock.json b/remote/package-lock.json
+index d40feb05..c12cff52 100644
+--- a/remote/package-lock.json
++++ b/remote/package-lock.json
+@@ -9,12 +9,10 @@
+       "version": "0.0.0",
+       "dependencies": {
+         "@devcontainers/cli": "0.88.0",
+-        "@github/copilot-sdk": "1.0.27-unstable.40031404408.gba6c003",
+         "@hpke/core": "^1.9.0",
+         "@microsoft/1ds-core-js": "^3.2.13",
+         "@microsoft/1ds-post-js": "^3.2.13",
+         "@parcel/watcher": "^2.5.6",
+-        "@vscode/copilot-api": "^0.5.2",
+         "@vscode/deviceid": "^0.1.1",
+         "@vscode/fs-copyfile": "2.0.0",
+         "@vscode/iconv-lite-umd": "0.7.1",
+@@ -74,155 +72,6 @@
+         "node": ">=20.0.0"
+       }
+     },
+-    "node_modules/@github/copilot-sdk": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk/-/copilot-sdk-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-WPuh3q1gV7h02W2riOyx4AD0dqGY8QKExd2Fwv3aiHevpSPTn0mHAuIPCSOvNoy14LxBJ3ViBOORHEAucClX2A==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "koffi": "3.2.1",
+-        "vscode-jsonrpc": "8.2.1",
+-        "zod": "4.3.6"
+-      },
+-      "engines": {
+-        "node": "^20.19.0 || >=22.12.0"
+-      },
+-      "optionalDependencies": {
+-        "@github/copilot-sdk-darwin-arm64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-darwin-x64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-linux-arm64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-linux-x64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-linuxmusl-arm64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-linuxmusl-x64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-win32-arm64": "1.0.27-unstable.40031404408.gba6c003",
+-        "@github/copilot-sdk-win32-x64": "1.0.27-unstable.40031404408.gba6c003"
+-      }
+-    },
+-    "node_modules/@github/copilot-sdk-darwin-arm64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-darwin-arm64/-/copilot-sdk-darwin-arm64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-QTre6C8lPpx1AZ1ZVc+XUUKGO9yoK259/rFwAsq7dNzjTUlMDX0zlgu1jx5cwEX7IeM37LDAVVnMYytvrA+W7Q==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "darwin"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-darwin-x64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-darwin-x64/-/copilot-sdk-darwin-x64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-N8Ts8b5QkVADH9gBbpYzukBikly3Q5TLGx73tGNv3WBzpsCRZsp4nudS/F/9aC6EbKpXUlIm6RYJPHWCcYe88g==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "darwin"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-linux-arm64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-linux-arm64/-/copilot-sdk-linux-arm64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-0SaRSB7zpPPmVUqtjcia3GoX3uBIKgwYZcBgVSEam2z8yUpUWcf6FNsav5XkB8VDJe7W0GVZh0UzvTIVGPqK4g==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "libc": [
+-        "glibc"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-linux-x64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-linux-x64/-/copilot-sdk-linux-x64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-6Rk0wqvhN+TE/1TgrBQogNy7OnHiMJnbhV8lzuHbQ/O4gRst74W3dMwFuIBukK9Z1CgaSURFd8zoJWBelLe1iw==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "libc": [
+-        "glibc"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-linuxmusl-arm64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-linuxmusl-arm64/-/copilot-sdk-linuxmusl-arm64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-ZmpHEbYCY8QufCBI6NEl04G1jEYR15pIAGzKd9PhuWJr6cIDhhzOB4970l9Ct3p26TtmfqFjSKyZfrZQW6YV1w==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "libc": [
+-        "musl"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-linuxmusl-x64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-linuxmusl-x64/-/copilot-sdk-linuxmusl-x64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-APvrYK5sFpozDezVw5sd/rec1P/oRQ01HWH/i1H9jptQ40A2vKiqDh5524+cWMh1wjnEMpm/YeMC2xycsT0WUA==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "libc": [
+-        "musl"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "linux"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-win32-arm64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-win32-arm64/-/copilot-sdk-win32-arm64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-nhuYKYmZEzJCwyBlREPmAc93K/YhX0y6xpTEn6wmToxGUVZ1oMml+7hcedkdc0xiPExoocMTtEc/dqVBcF07Tw==",
+-      "cpu": [
+-        "arm64"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "win32"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk-win32-x64": {
+-      "version": "1.0.27-unstable.40031404408.gba6c003",
+-      "resolved": "https://registry.npmjs.org/@github/copilot-sdk-win32-x64/-/copilot-sdk-win32-x64-1.0.27-unstable.40031404408.gba6c003.tgz",
+-      "integrity": "sha512-eZfFpxxqk5qMcSkRdmeYKfLx8l+CbXE8Xbsl7C6zkaODaVKIopmVntHCPjKdd+luP5Q0VL2Zc2Ss/EzdlLsONg==",
+-      "cpu": [
+-        "x64"
+-      ],
+-      "license": "MIT",
+-      "optional": true,
+-      "os": [
+-        "win32"
+-      ]
+-    },
+-    "node_modules/@github/copilot-sdk/node_modules/zod": {
+-      "version": "4.3.6",
+-      "resolved": "https://registry.npmjs.org/zod/-/zod-4.3.6.tgz",
+-      "integrity": "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==",
+-      "license": "MIT",
+-      "funding": {
+-        "url": "https://github.com/sponsors/colinhacks"
+-      }
+-    },
+     "node_modules/@hpke/common": {
+       "version": "1.10.1",
+       "resolved": "https://registry.npmjs.org/@hpke/common/-/common-1.10.1.tgz",
+diff --git a/remote/package.json b/remote/package.json
+index d66f0fff..001ab2c0 100644
+--- a/remote/package.json
++++ b/remote/package.json
+@@ -4,12 +4,10 @@
+   "private": true,
+   "dependencies": {
+     "@devcontainers/cli": "0.88.0",
+-    "@github/copilot-sdk": "1.0.27-unstable.40031404408.gba6c003",
+     "@hpke/core": "^1.9.0",
+     "@microsoft/1ds-core-js": "^3.2.13",
+     "@microsoft/1ds-post-js": "^3.2.13",
+     "@parcel/watcher": "^2.5.6",
+-    "@vscode/copilot-api": "^0.5.2",
+     "@vscode/deviceid": "^0.1.1",
+     "@vscode/fs-copyfile": "2.0.0",
+     "@vscode/iconv-lite-umd": "0.7.1",
+@@ -79,6 +77,5 @@
+     "cpu-features": false,
+     "@vscode/windows-ca-certs@0.3.4": true,
+     "@vscode/windows-process-tree@0.8.0": true
+-  },
+-  "copilotRuntimeVersion": "1.0.103-unstable.r40031404408.gba6c003"
++  }
+ }
+diff --git a/src/vs/platform/agentHost/node/agentHostAutomationService.ts b/src/vs/platform/agentHost/node/agentHostAutomationService.ts
+index 47b7fe1e..d64182b8 100644
+--- a/src/vs/platform/agentHost/node/agentHostAutomationService.ts
++++ b/src/vs/platform/agentHost/node/agentHostAutomationService.ts
+@@ -138,7 +138,7 @@ export class AgentHostAutomationService extends Disposable implements IAgentHost
+ 		@IAgentHostSystemWakeService private readonly _systemWake: IAgentHostSystemWakeService,
+ 	) {
+ 		super();
+-		this._customizations = new AgentHostAutomationCustomizations(pluginManager.hostPluginsPath, fileService, this._logService, environmentService.userHome);
++		this._customizations = new AgentHostAutomationCustomizations(pluginManager.hostPluginsPath, fileService, this._logService);
+ 		this._register(toDisposable(() => this._mcpAuthenticationChallenges.clear()));
+ 		const stored = this._load();
+ 		this._runs = new Map(stored?.runs?.map(run => [run.resource, run]));
+diff --git a/src/vs/platform/agentHost/node/agentHostContributions.ts b/src/vs/platform/agentHost/node/agentHostContributions.ts
+index b85d4adb..f3b50580 100644
+--- a/src/vs/platform/agentHost/node/agentHostContributions.ts
++++ b/src/vs/platform/agentHost/node/agentHostContributions.ts
+@@ -11,7 +11,6 @@ import { IAgentHostChangesetOperationService } from '../common/agentHostChangese
+ import { AgentHostAcceptChangesOperationContribution } from './agentHostAcceptChangesOperationProvider.js';
+ import { AgentHostCheckoutOperationContribution } from './agentHostCheckoutOperationProvider.js';
+ import { IAgentHostStateManager } from './agentHostStateManager.js';
+-import { AgentHostCommitOperationContribution } from './agentHostCommitOperationProvider.js';
+ import { IAgentHostCompletions } from './agentHostCompletions.js';
+ import { AgentHostDiscardChangesOperationContribution } from './agentHostDiscardChangesOperationProvider.js';
+ import { AgentHostFileCompletionProvider } from './agentHostFileCompletionProvider.js';
+@@ -31,7 +30,6 @@ export function activateAgentHostContributions(accessor: ServicesAccessor, insta
+ 	try {
+ 		store.add(accessor.get(IArtifactIntegrationRegistry).register(instantiationService.createInstance(GitHubPullRequestArtifactIntegration), 'github.pullRequest.v1'));
+ 		const changesetOperationService = accessor.get(IAgentHostChangesetOperationService);
+-		store.add(changesetOperationService.registerContribution(instantiationService.createInstance(AgentHostCommitOperationContribution)));
+ 		store.add(changesetOperationService.registerContribution(instantiationService.createInstance(AgentHostPullRequestOperationContribution)));
+ 		store.add(changesetOperationService.registerContribution(instantiationService.createInstance(AgentHostMergeOperationContribution)));
+ 		store.add(changesetOperationService.registerContribution(instantiationService.createInstance(AgentHostSyncOperationContribution)));
+diff --git a/src/vs/platform/agentHost/node/agentHostMain.ts b/src/vs/platform/agentHost/node/agentHostMain.ts
+index a12c656e..e6f8341e 100644
+--- a/src/vs/platform/agentHost/node/agentHostMain.ts
++++ b/src/vs/platform/agentHost/node/agentHostMain.ts
+@@ -16,19 +16,12 @@ import { generateUuid } from '../../../base/common/uuid.js';
+ import * as os from 'os';
+ import { writeSync } from 'fs';
+ import * as inspector from 'inspector';
+-import { AgentHostClaudeAgentEnabledEnvVar, AgentHostCodexAgentCodexHomeEnvVar, AgentHostCodexAgentEnabledEnvVar, AgentHostIpcChannels, IAgentHostInspectInfo, IAgentHostSocketInfo, IConnectionTrackerService, isAgentEnabled } from '../common/agentService.js';
+-import { AgentHostCodexEnabledConfigKey, platformRootSchema } from '../common/agentHostSchema.js';
++import { AgentHostIpcChannels, IAgentHostInspectInfo, IAgentHostSocketInfo, IConnectionTrackerService } from '../common/agentService.js';
+ import { AgentModelRefreshScheduler, MODEL_REFRESH_INTERVAL_MS } from './agentModelRefreshScheduler.js';
+ import { AgentService } from './agentService.js';
+ import { AgentHostStateManager, IAgentHostStateManager } from './agentHostStateManager.js';
+ import { IAgentConfigurationService } from './agentConfigurationService.js';
+ import { IAgentHostCompletions } from './agentHostCompletions.js';
+-import { CopilotAgent } from './copilot/copilotAgent.js';
+-import { ClaudeAgent } from './claude/claudeAgent.js';
+-import { ClaudeSdkPackage } from './claude/claudeAgentSdkService.js';
+-import { CodexAgent } from './codex/codexAgent.js';
+-import { CodexSdkPackage } from './codex/codexSdk.js';
+-import { createCodexProviderConfiguration } from './codex/codexProviderConfiguration.js';
+ import { ByokLmBridgeRegistry } from './byokLmBridgeRegistry.js';
+ import { IAgentHostProxyResolver } from './agentHostProxyResolver.js';
+ import { IAgentSdkDownloader, type IAgentSdkDownloadProgress } from './agentSdkDownloader.js';
+diff --git a/src/vs/platform/agentHost/node/agentHostPullRequestOperationHandler.ts b/src/vs/platform/agentHost/node/agentHostPullRequestOperationHandler.ts
+index 251003a8..f8cc6e92 100644
+--- a/src/vs/platform/agentHost/node/agentHostPullRequestOperationHandler.ts
++++ b/src/vs/platform/agentHost/node/agentHostPullRequestOperationHandler.ts
+@@ -7,14 +7,13 @@ import { CancellationToken } from '../../../base/common/cancellation.js';
+ import { captureCredentialSource, type IAgentHostCredentialSource } from '../common/agentHostCredentials.js';
+ import { DisposableStore } from '../../../base/common/lifecycle.js';
+ import { equals } from '../../../base/common/objects.js';
+-import { isEqualOrParent, relativePath } from '../../../base/common/resources.js';
+ import { URI } from '../../../base/common/uri.js';
+ import { localize } from '../../../nls.js';
+ import { IAgentHostAuthenticationService } from './agentHostAuthenticationService.js';
+ import { IAgentHostGitHubEndpointService } from './agentHostGitHubEndpointService.js';
+ import { parseChangesetUri, parseFolderChangesetOwnerUri } from '../common/changesetUri.js';
+ import { AHP_AUTH_REQUIRED, AHP_SESSION_NOT_FOUND, JsonRpcErrorCodes, ProtocolError } from '../common/state/sessionProtocol.js';
+-import { readFolderGitHubState, readSessionGitState, type ChangesetOperationFollowUp, type ISessionFileDiff, type ISessionWithDefaultChat } from '../common/state/sessionState.js';
++import { readFolderGitHubState, readSessionGitState, type ChangesetOperationFollowUp, type ISessionWithDefaultChat } from '../common/state/sessionState.js';
+ import { ILogService } from '../../log/common/log.js';
+ import { IAgentHostGitService, parseUpstreamBranchName } from '../common/agentHostGitService.js';
+ import { AgentHostCreatePullRequestOperationId, type IChangesetOperationHandler } from '../common/agentHostChangesetOperationService.js';
+@@ -24,9 +23,6 @@ import { PullRequestMergeMethod } from '../../github/common/githubPullRequestSer
+ import { GitHubRequestTimeoutError } from '../../github/common/githubTypes.js';
+ import { IAgentHostGitHubService } from './agentHostGitHubService.js';
+ import type { InvokeChangesetOperationParams, InvokeChangesetOperationResult } from '../common/state/protocol/channels-changeset/commands.js';
+-import { type ICopilotUtilityChatMessage } from './shared/copilotApiService.js';
+-import { AgentHostUtilityModelUnavailableError, AgentHostUtilityModelUnavailableReason, IAgentHostUtilityModelService, type IAgentHostUtilityModelContext } from './agentHostUtilityModelService.js';
+-import { buildConversationContext } from '../common/agentHostConversationContext.js';
+ import { IAgentBranchNameGenerator } from './shared/agentBranchNameGenerator.js';
+ import { SessionConfigKey } from '../common/sessionConfigKeys.js';
+ import { readAgentMergeFolderState, withAgentMergeFolderState } from '../common/agentMerge.js';
+@@ -453,18 +449,6 @@ export class AgentHostPullRequestOperationHandler implements IChangesetOperation
+ 		return await this._finalize(created, false, sessionUri, ownerUri, conversationChat, gitHubState.owner, gitHubState.repo, branchName, client, signal, token, options, source);
+ 	}
+ 
+-	private async _getBranchChanges(workingDirectory: URI, sessionUri: string, baseBranchName: string, token: CancellationToken): Promise<readonly ISessionFileDiff[]> {
+-		const branchChanges = await this._gitService.computeSessionFileDiffs(workingDirectory, { sessionUri, baseBranch: baseBranchName });
+-		this._throwIfCancelled(token);
+-		if (branchChanges === undefined) {
+-			throw new ProtocolError(JsonRpcErrorCodes.InternalError, localize('agentHost.changeset.pr.computeChangesFailed', "Could not compute branch changes to create a pull request."));
+-		}
+-		if (branchChanges.length === 0) {
+-			throw new ProtocolError(JsonRpcErrorCodes.InternalError, localize('agentHost.changeset.pr.noChanges', "There are no branch changes to create a pull request for."));
+-		}
+-		return branchChanges;
+-	}
+-
+ 	private _isAgentMergeEnabled(): boolean {
+ 		return isAgentMergeEnabled(this._configurationService);
+ 	}
+diff --git a/src/vs/platform/agentHost/node/agentHostSessionTitleController.ts b/src/vs/platform/agentHost/node/agentHostSessionTitleController.ts
+index 3518b713..b13fa5c4 100644
+--- a/src/vs/platform/agentHost/node/agentHostSessionTitleController.ts
++++ b/src/vs/platform/agentHost/node/agentHostSessionTitleController.ts
+@@ -467,325 +467,6 @@ export class AgentHostSessionTitleController extends Disposable implements IAgen
+ 		}
+ 	}
+ 
+-	private _generateTitleSoon(
+-		key: ProtocolURI,
+-		prompt: ITitlePromptContext,
+-		fallbackTitle: string,
+-		apply: (title: string) => void,
+-		currentTitleMatchesFallback: () => boolean,
+-		persist: (title: string) => void | Promise<void>,
+-	): void {
+-		void this._startTitleGeneration(key, prompt, fallbackTitle, apply, currentTitleMatchesFallback, persist);
+-	}
+-
+-	/** Starts generation and resolves once the title has been applied and persisted. */
+-	private _startTitleGeneration(
+-		key: ProtocolURI,
+-		prompt: ITitlePromptContext,
+-		fallbackTitle: string,
+-		apply: (title: string) => void,
+-		currentTitleMatchesFallback: () => boolean,
+-		persist: (title: string) => void | Promise<void>,
+-	): Promise<void> {
+-		this._cancelTitleGeneration(key);
+-		const source = new CancellationTokenSource();
+-		this._titleGenerationCancellationSources.set(key, source);
+-		return this._generateTitle(key, prompt, fallbackTitle, apply, currentTitleMatchesFallback, persist, source.token).catch(err => {
+-			if (!source.token.isCancellationRequested) {
+-				this._logService.warn(`[AgentHostSessionTitleController] Failed to apply generated title for ${key}`, err);
+-			}
+-		}).finally(() => {
+-			if (this._titleGenerationCancellationSources.get(key) === source) {
+-				this._titleGenerationCancellationSources.delete(key);
+-				source.dispose();
+-			}
+-		});
+-	}
+-
+-	private async _generateTitle(
+-		key: ProtocolURI,
+-		prompt: ITitlePromptContext,
+-		fallbackTitle: string,
+-		apply: (title: string) => void,
+-		currentTitleMatchesFallback: () => boolean,
+-		persist: (title: string) => void | Promise<void>,
+-		token: CancellationToken,
+-	): Promise<void> {
+-		const generatedTitle = await this._generateTitleFromPrompt(prompt, token);
+-		if (token.isCancellationRequested || !generatedTitle) {
+-			return;
+-		}
+-
+-		if (!currentTitleMatchesFallback()) {
+-			return;
+-		}
+-
+-		if (generatedTitle !== fallbackTitle) {
+-			apply(generatedTitle);
+-		}
+-		await persist(generatedTitle);
+-	}
+-
+-	private async _generateTitleFromPrompt(prompt: ITitlePromptContext, token: CancellationToken): Promise<string | undefined> {
+-		if (token.isCancellationRequested) {
+-			return undefined;
+-		}
+-
+-		const utilityModelService = this._options.utilityModelService;
+-		if (!utilityModelService) {
+-			return undefined;
+-		}
+-
+-		const abortController = new AbortController();
+-		const cancellationListener = token.onCancellationRequested(() => abortController.abort());
+-		try {
+-			const titlePromptContent = prompt.gitHubReferenceSource === undefined
+-				? prompt.content
+-				: await this._appendGitHubContext(prompt.content, prompt.gitHubReferenceSource, abortController.signal, token, prompt.modelContext);
+-			if (token.isCancellationRequested) {
+-				return undefined;
+-			}
+-			const rawTitle = await utilityModelService.chatCompletion(prompt.modelContext, {
+-				messages: this._buildTitlePrompt(titlePromptContent, prompt),
+-				maxTokens: MAX_TITLE_TOKENS,
+-			}, {
+-				signal: abortController.signal,
+-			});
+-			return this._cleanTitle(rawTitle, titlePromptContent);
+-		} catch (err) {
+-			if (token.isCancellationRequested) {
+-				return undefined;
+-			}
+-			if (err instanceof AgentHostUtilityModelUnavailableError) {
+-				this._logService.trace(`[AgentHostSessionTitleController] Skipping title generation: ${err.message}`);
+-				return undefined;
+-			}
+-			this._logService.warn('[AgentHostSessionTitleController] Failed to generate session title', err);
+-			return undefined;
+-		} finally {
+-			cancellationListener.dispose();
+-		}
+-	}
+-
+-	/**
+-	 * Appends the GitHub issue / pull requests linked from `referenceSource` to
+-	 * `promptContent`, keeping the combined text within
+-	 * {@link MAX_TITLE_CONTEXT_CHARS}. Enrichment is guaranteed
+-	 * {@link MIN_GITHUB_CONTEXT_CHARS}; whatever it leaves over bounds
+-	 * `promptContent`, whose middle is dropped so the request at its head and
+-	 * the response tail both survive.
+-	 */
+-	private async _appendGitHubContext(promptContent: string, referenceSource: string, cancellationSignal: AbortSignal, token: CancellationToken, context: IAgentHostUtilityModelContext): Promise<string> {
+-		const references = this._parseGitHubReferences(referenceSource);
+-		const githubToken = this._options.getGitHubToken?.(context.session, context.chat, context.credentialSource);
+-		const gitHubService = this._options.gitHubService;
+-		if (references.length === 0 || !githubToken || !gitHubService) {
+-			return promptContent;
+-		}
+-
+-		const signal = AbortSignal.any([cancellationSignal, AbortSignal.timeout(this._options.gitHubContextRequestTimeout ?? GITHUB_CONTEXT_REQUEST_TIMEOUT)]);
+-		const store = new DisposableStore();
+-		try {
+-			const client = store.add(gitHubService.acquireRepositoryApiClient(signal, context.credentialSource, context.chat ?? context.session));
+-			const contexts = await Promise.all(references.map(async reference => {
+-				try {
+-					const issue = await client.issues.get(reference, reference.number, signal, {
+-						caller: 'agentHost.sessionTitle',
+-						priority: 'background',
+-					});
+-					if (issue.body === undefined) {
+-						return undefined;
+-					}
+-					return { reference, value: { title: issue.title, body: issue.body ?? '' } };
+-				} catch (error) {
+-					if (!token.isCancellationRequested) {
+-						this._logService.warn(`[AgentHostSessionTitleController] Failed to fetch GitHub ${reference.kind} ${reference.owner}/${reference.repo}#${reference.number}`, error);
+-					}
+-					return undefined;
+-				}
+-			}));
+-			const successfulContexts = contexts.filter(context => context !== undefined);
+-			if (successfulContexts.length === 0) {
+-				return promptContent;
+-			}
+-			const separator = '\n\n';
+-			const gitHubBudget = Math.max(MIN_GITHUB_CONTEXT_CHARS, MAX_TITLE_CONTEXT_CHARS - promptContent.length - separator.length);
+-			const gitHubContext = this._formatGitHubContexts(successfulContexts, gitHubBudget);
+-			const contentBudget = Math.max(0, MAX_TITLE_CONTEXT_CHARS - gitHubContext.length - separator.length);
+-			const content = promptContent.length > contentBudget ? truncateMiddle(promptContent, contentBudget) : promptContent;
+-			return `${content}${separator}${gitHubContext}`;
+-		} catch (error) {
+-			if (!token.isCancellationRequested) {
+-				this._logService.warn('[AgentHostSessionTitleController] Failed to acquire GitHub context', error);
+-			}
+-			return promptContent;
+-		} finally {
+-			store.dispose();
+-		}
+-	}
+-
+-	private _parseGitHubReferences(text: string): IGitHubReference[] {
+-		const references: IGitHubReference[] = [];
+-		const seen = new Set<string>();
+-		const configuredHost = this._normalizeGitHubHost(this._options.getGitHubHost?.() ?? 'github.com');
+-		for (const match of text.matchAll(GITHUB_ISSUE_OR_PULL_REQUEST_URL_PATTERN)) {
+-			const host = match.groups?.host;
+-			const owner = match.groups?.owner;
+-			const repo = match.groups?.repo;
+-			const rawKind = match.groups?.kind;
+-			const number = Number(match.groups?.number);
+-			if (!host || this._normalizeGitHubHost(host) !== configuredHost || !owner || !repo || (rawKind !== 'issues' && rawKind !== 'pull') || !Number.isSafeInteger(number) || number <= 0) {
+-				continue;
+-			}
+-			const kind: GitHubReferenceKind = rawKind === 'issues' ? 'issue' : 'pull request';
+-			const key = `${owner.toLowerCase()}/${repo.toLowerCase()}/${kind}/${number}`;
+-			if (seen.has(key)) {
+-				continue;
+-			}
+-			seen.add(key);
+-			references.push({ owner, repo, number, kind });
+-			if (references.length === MAX_GITHUB_CONTEXT_REFERENCES) {
+-				break;
+-			}
+-		}
+-		return references;
+-	}
+-
+-	private _normalizeGitHubHost(host: string): string {
+-		const normalizedHost = host.toLowerCase();
+-		return normalizedHost === 'www.github.com' ? 'github.com' : normalizedHost;
+-	}
+-
+-	private _formatGitHubContexts(contexts: readonly IGitHubReferenceContext[], budget: number): string {
+-		const heading = 'GitHub issue and pull request context:\n\n';
+-		const fixedLength = heading.length + contexts.reduce((length, context, index) => {
+-			return length + this._formatGitHubContext(context.reference, context.value, '').length + (index === 0 ? 0 : 2);
+-		}, 0);
+-		let remainingBodyBudget = Math.max(0, budget - fixedLength);
+-		const sections = contexts.map((context, index) => {
+-			const bodyBudget = Math.min(
+-				MAX_GITHUB_CONTEXT_BODY_CHARS,
+-				Math.floor(remainingBodyBudget / (contexts.length - index)),
+-			);
+-			const body = truncateMiddle(context.value.body, bodyBudget);
+-			remainingBodyBudget -= body.length;
+-			return this._formatGitHubContext(context.reference, context.value, body);
+-		});
+-		return truncateMiddle(`${heading}${sections.join('\n\n')}`, budget);
+-	}
+-
+-	private _formatGitHubContext(reference: IGitHubReference, value: IGitHubReferenceContext['value'], body: string): string {
+-		return [
+-			`GitHub ${reference.kind} ${reference.owner}/${reference.repo}#${reference.number}:`,
+-			`The title of the ${reference.kind} is: ${value.title}`,
+-			`The body of the ${reference.kind} is:`,
+-			body,
+-		].join('\n');
+-	}
+-
+-	private _buildTitlePrompt(promptContent: string, prompt: ITitlePromptContext): ICopilotUtilityChatMessage[] {
+-		const request = prompt.isConversation
+-			? `Please write a brief title for the following conversation:\n\n${promptContent}`
+-			: `Please write a brief title for the following request:\n\n${promptContent}`;
+-		const currentTitle = prompt.currentTitle?.trim();
+-		const userInstruction = currentTitle
+-			? `${request}\n\nIts current title is: ${currentTitle}\nReply with that same title unless the text above supports a clearly more accurate one.`
+-			: request;
+-		return [
+-			{
+-				role: 'system',
+-				content: [
+-					'You are an expert in crafting ultra-compact titles for chatbot conversations.',
+-					'You are presented with a chat request or conversation, and you reply with only a brief title that captures the main topic.',
+-					'Write the title in sentence case, not title case.',
+-					'Preserve product names, abbreviations, code symbols, and proper nouns.',
+-					'Aim for 3-6 words. Prefer the shortest accurate title.',
+-					'Drop articles like "a", "an", and "the" unless needed for clarity.',
+-					'Drop filler and generic framing like "help with", "question about", "request for", or "issue with".',
+-					'Never describe the chat itself as forked, branched, or continued — title only the underlying topic.',
+-					'Prefer short, concrete synonyms and omit unnecessary words.',
+-					'Do not wrap the title in quotes or add trailing punctuation.',
+-				].join(' '),
+-			},
+-			{
+-				role: 'user',
+-				content: userInstruction,
+-			},
+-		];
+-	}
+-
+-	private _cleanTitle(rawTitle: string, promptContent: string): string | undefined {
+-		let title = rawTitle.trim();
+-		const firstLine = title.split(/\r?\n/).map(line => line.trim()).find(line => line.length > 0);
+-		title = firstLine ?? '';
+-		if (title.startsWith('"') && title.endsWith('"') && title.length > 1) {
+-			title = title.slice(1, -1).trim();
+-		}
+-		title = title.replace(/[.!?]+$/, '').trim();
+-
+-		if (!title || title.includes('can\'t assist with that')) {
+-			return undefined;
+-		}
+-		title = title.slice(0, MAX_TITLE_LENGTH + MAX_TRAILING_HAN_SUFFIX_CODE_UNITS);
+-		return this._stripUnexpectedTrailingHanSuffix(title, promptContent).slice(0, MAX_TITLE_LENGTH);
+-	}
+-
+-	private _stripUnexpectedTrailingHanSuffix(title: string, promptContent: string): string {
+-		if (HAN_CHARACTER.test(promptContent)) {
+-			return title;
+-		}
+-
+-		const suffix = TRAILING_HAN_SUFFIX.exec(title);
+-		if (!suffix) {
+-			return title;
+-		}
+-
+-		const prefix = title.slice(0, suffix.index).trimEnd();
+-		const letterCount = prefix.match(/\p{L}/gu)?.length ?? 0;
+-		const latinLetterCount = prefix.match(/\p{sc=Latin}/gu)?.length ?? 0;
+-		if (latinLetterCount < MIN_LATIN_LETTERS_BEFORE_HAN_SUFFIX || latinLetterCount / letterCount < MIN_LATIN_LETTER_RATIO) {
+-			return title;
+-		}
+-
+-		return prefix;
+-	}
+-
+-	/**
+-	 * Builds the first-turn context string for title refinement. The user's
+-	 * request is always kept (truncated in the middle only if it alone exceeds
+-	 * half the budget). Only normal text (markdown) response parts are
+-	 * considered — tool calls, reasoning, and other parts are ignored. If the
+-	 * combined text is over budget, the middle of the response is removed.
+-	 *
+-	 * @returns the context string, or `undefined` when the turn has no text
+-	 * response worth refining from (the opening message already produced a
+-	 * title in that case).
+-	 */
+-	private _buildFirstTurnContext(turn: Turn, forkContext?: { readonly sourceTitle?: string; readonly initialPrompt: string }): string | undefined {
+-		const response = renderResponseMarkdown(turn.responseParts);
+-		if (!response) {
+-			return undefined;
+-		}
+-
+-		const userBudget = Math.floor(MAX_TITLE_CONTEXT_CHARS / 2);
+-		let userRequest = turn.message.text.trim();
+-		if (userRequest.length > userBudget) {
+-			userRequest = truncateMiddle(userRequest, userBudget);
+-		}
+-		const userBlock = `User request:\n${userRequest}`;
+-		const responseLabel = '\n\nAgent response:\n';
+-
+-		const responseBudget = Math.max(0, MAX_TITLE_CONTEXT_CHARS - userBlock.length - responseLabel.length);
+-		const trimmedResponse = response.length > responseBudget ? truncateMiddle(response, responseBudget) : response;
+-
+-		const firstTurnContext = trimmedResponse ? `${userBlock}${responseLabel}${trimmedResponse}` : userBlock;
+-		if (!forkContext) {
+-			return firstTurnContext;
+-		}
+-		const prefix = this._buildPromptForkContextPrefix(forkContext.sourceTitle, forkContext.initialPrompt);
+-		return `${prefix}${truncateMiddle(firstTurnContext, Math.max(0, MAX_TITLE_CONTEXT_CHARS - prefix.length))}`;
+-	}
+-
+ 	/**
+ 	 * Builds a conversation context string for forked-title generation by
+ 	 * concatenating each kept turn's user request and textual response. Only
+diff --git a/src/vs/platform/agentHost/node/agentHostTelemetryReporter.ts b/src/vs/platform/agentHost/node/agentHostTelemetryReporter.ts
+index 3bc0f20e..000f5f95 100644
+--- a/src/vs/platform/agentHost/node/agentHostTelemetryReporter.ts
++++ b/src/vs/platform/agentHost/node/agentHostTelemetryReporter.ts
+@@ -6,61 +6,25 @@
+ import type { LanguageModelToolApprovalClassification, LanguageModelToolInvokedClassification, LanguageModelToolInvokedEvent } from '../../telemetry/common/languageModelToolTelemetry.js';
+ import { ITelemetryService } from '../../telemetry/common/telemetry.js';
+ import { TelemetryTrustedValue } from '../../telemetry/common/telemetryUtils.js';
+-import { hash } from '../../../base/common/hash.js';
+ import { createDecorator } from '../../instantiation/common/instantiation.js';
+ import { AgentSession, type AgentSubagentKind, type AgentSubagentTaskModelSource, type AgentTurnProviderCallState, type AgentTurnProviderSessionState, type IAgentTurnDiagnosticSnapshot, type IAgentTokenUsageSummary, type IAgentTelemetryContext } from '../common/agent.js';
+-import { isReasoningEffortLevel } from '../common/reasoningEffort.js';
+ import { isAutoModeRoutingTier, normalizeAutoModeTier } from '../common/autoModeTiers.js';
+ import { isCopilotHydraFusionModelId } from '../common/copilotCliConfig.js';
+ import type { SessionMode } from '../common/agentHostSchema.js';
+ import { getTelemetryChatSessionId } from '../common/agentTelemetryCorrelation.js';
+-import { readAgentErrorTelemetryMeta } from '../common/meta/errorMeta.js';
+ import { readLocalModelRowMeta } from '../common/meta/localModelStatus.js';
+ import type { IAgentMetadataSource } from '../common/meta/metadata.js';
+ import { isAgentMergeMessage } from '../common/meta/agentMergeMessageMeta.js';
+ import type { McpServerSource } from '../common/meta/mcpCustomizationMeta.js';
+ import { MessageKind, type ErrorInfo, type Message, type SessionInputRequestKind, type ToolDefinition } from '../common/state/protocol/state.js';
+ import { ActionType } from '../common/state/sessionActions.js';
+-import { getAgentHostChatId, isSubagentSession, type ISessionWithDefaultChat } from '../common/state/sessionState.js';
+-import { IAgentHostOTelService, NullAgentHostOTelService } from '../common/otel/agentHostOTelService.js';
++import { isSubagentSession, type ISessionWithDefaultChat } from '../common/state/sessionState.js';
+ import type { ToolInvokedResult } from './agentHostToolCallTracker.js';
+ import type { AutomaticTitleGenerationStrategy } from './agentHostSessionTitleController.js';
+ import { multiplexProperties, type IAgentHostRestrictedTelemetry, type IAgentHostRestrictedTelemetryContext } from './agentHostRestrictedTelemetry.js';
+ import { AgentHostClientType } from '../common/agentHostClientInfo.js';
+ import { AgentHostClientConnectionKind, AgentHostLaunchKind, AgentHostTransportKind, type CodexModelProvider, type AgentHostProviderSendStage, type AgentHostTurnFailureStage, type AgentHostTurnSendStage, type IAgentHostClientTelemetryContext, type IAgentProviderTurnTelemetryContext, type ICodexAccountTelemetryContext } from '../common/agentHostTelemetry.js';
+-import { isAgentHostTelemetryService } from './agentHostTelemetryService.js';
+-import { toCopilotTelemetryData } from './shared/copilotSkuTelemetry.js';
+-import { getCodexAccountTelemetryData, type CodexAccountTelemetryClassification } from './codex/codexAccountTelemetry.js';
+-import { groupAgentHostProviderTimings, sanitizeAgentHostProviderTiming, type AgentHostProviderTimingMeasurement, type AgentHostProviderTimingMeasurements, type IAgentHostProviderTiming } from '../common/agentHostProviderTiming.js';
+-
+-type AgentHostProviderTimingEvent = IAgentHostEventTelemetry & AgentHostProviderTimingMeasurements & {
+-	schemaVersion: number;
+-	group: string;
+-	provider: string;
+-	agentSessionId: string;
+-	chatSessionId: string;
+-	turnId: string;
+-	result: AgentHostTurnResult;
+-	model: string | TelemetryTrustedValue<string> | undefined;
+-};
+-
+-type AgentHostProviderTimingClassification = IAgentHostEventClassification & {
+-	[K in AgentHostProviderTimingMeasurement]?: {
+-		classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true;
+-		comment: 'Allowlisted operation aggregate: start/end offsets and queue/execution durations in milliseconds, or invocation/error/incomplete counts. Milestone fields are first-observation offsets in milliseconds. See the provider timing contract.';
+-	};
+-} & {
+-	owner: 'roblourens';
+-	comment: 'Grouped VS Code provider-operation and SDK-observation timings, correlated to a completed host turn.';
+-	schemaVersion: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Version of the provider timing contract.' };
+-	group: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Code-defined timing group: input, permissions, sandboxShell, mcp, execution, interactions or milestones.' };
+-	provider: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Agent provider identifier.' };
+-	agentSessionId: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Opaque agent session identifier.' };
+-	chatSessionId: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Opaque chat correlation identifier.' };
+-	turnId: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Host turn correlation identifier.' };
+-	result: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Terminal host turn outcome, not the operation outcome.' };
+-	model: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Privacy-normalized selected model.' };
+-};
++import { type IAgentHostProviderTiming } from '../common/agentHostProviderTiming.js';
+ 
+ export type AgentHostUserMessageSentSource = 'direct' | 'queued';
+ 
+@@ -439,7 +403,7 @@ export interface IAgentHostTurnCompletedEvent extends IAgentHostEventTelemetry,
+ 	modelCallCount: number;
+ }
+ 
+-export type IAgentHostTurnCompletedClassification = IAgentHostEventClassification & CodexAccountTelemetryClassification & IAgentHostSubagentKindClassification & IAgentHostFusionTurnClassification & {
++export type IAgentHostTurnCompletedClassification = IAgentHostEventClassification & IAgentHostSubagentKindClassification & {
+ 	codexModelProvider?: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Bounded model provider actually used by a Codex turn: openai, copilot, other, or unknown.' };
+ 	usedPrewarmedSession?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Whether the turn claimed a provider session that was started before the first message; absent when it did not.' };
+ 	prewarmedSessionDiscardReason?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Bounded reason the turn discarded a provider session started before the first message and launched one instead, such as modelChanged or clientToolsChanged; absent when it did not.' };
+@@ -653,15 +617,7 @@ const turnActivityKindsByActionType = {
+ 
+ export type AgentHostTurnActivityTelemetryKind = 'none' | 'other' | typeof turnActivityKindsByActionType[keyof typeof turnActivityKindsByActionType];
+ 
+-function normalizeTurnActivityKind(activityKind: string): AgentHostTurnActivityTelemetryKind {
+-	if (activityKind === 'none') {
+-		return 'none';
+-	}
+-
+-	return turnActivityKindsByActionType[activityKind as keyof typeof turnActivityKindsByActionType] ?? 'other';
+-}
+-
+-export interface IAgentHostTurnHungEvent extends IAgentHostEventTelemetry, Partial<ICodexAccountTelemetryContext>, IAgentHostFusionTurnTelemetry {
++export interface IAgentHostTurnHungEvent extends IAgentHostEventTelemetry, Partial<ICodexAccountTelemetryContext> {
+ 	provider: string;
+ 	agentSessionId: string;
+ 	chatSessionId: string;
+@@ -690,7 +646,7 @@ export interface IAgentHostTurnHungEvent extends IAgentHostEventTelemetry, Parti
+ 	permissionLevel: string | undefined;
+ }
+ 
+-export type IAgentHostTurnHungClassification = IAgentHostEventClassification & CodexAccountTelemetryClassification & IAgentHostSubagentKindClassification & IAgentHostFusionTurnClassification & {
++export type IAgentHostTurnHungClassification = IAgentHostEventClassification & IAgentHostSubagentKindClassification & {
+ 	provider: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The provider handling the hung agent host turn.' };
+ 	agentSessionId: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The agent host session identifier.' };
+ 	chatSessionId: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The chat identifier within the agent host session.' };
+@@ -1431,225 +1387,15 @@ export class AgentHostTelemetryReporter {
+ 	 * @param report The invoked skill's metadata (from the SDK `skill.invoked` payload).
+ 	 */
+ 	skillContentRead(report: IAgentHostSkillContentReadReport): void {
+-		const restricted = this._restricted;
+-		if (!restricted || !report.name) {
+-			return;
+-		}
+-		const contentHash = report.content ? String(hash(report.content)) : '';
+-		const skillStorage = report.source ?? '';
+-		// Match the extension: the version is only reported when the (plugin) id is known, so we
+-		// never emit a `skillExtensionVersion` without a corresponding `skillExtensionId`.
+-		const skillExtensionVersion = report.pluginName ? (report.pluginVersion ?? '') : '';
+-		const plaintextProps = {
+-			initiatorClientType: report.clientType,
+-			skillName: report.name,
+-			skillPath: report.path,
+-			skillExtensionId: report.pluginName ?? '',
+-			skillExtensionVersion,
+-			skillStorage,
+-			skillContentHash: contentHash,
+-		};
+-		restricted.sendGHTelemetryEvent('skillContentRead', {
+-			initiatorClientType: report.clientType,
+-			skillNameHash: String(hash(report.name)),
+-			skillExtensionIdHash: report.pluginName ? String(hash(report.pluginName)) : '',
+-			skillExtensionVersion,
+-			skillStorage,
+-			skillContentHash: contentHash,
+-		});
+-		restricted.sendEnhancedGHTelemetryEvent('skillContentRead', plaintextProps);
+-		restricted.sendInternalMSFTTelemetryEvent('skillContentRead', plaintextProps);
+ 	}
+ 
+ 	async reportRepoInfo(context: IAgentHostRestrictedTelemetryContext, report: IAgentHostRepoInfoReport): Promise<void> {
+-		const restricted = this._restricted;
+-		if (!restricted) {
+-			return;
+-		}
+-		const properties = {
+-			initiatorClientType: report.clientType,
+-			remoteUrl: report.remoteUrl,
+-			repoId: report.repoId,
+-			repoType: report.repoType,
+-			headCommitHash: report.headCommitHash,
+-			headBranchName: report.headBranchName,
+-			fileRelativePaths: report.fileRelativePaths,
+-			diffsJSON: report.diffsJSON,
+-			result: report.result,
+-			isActiveRepository: report.isActiveRepository,
+-			location: report.location,
+-			telemetryMessageId: report.telemetryMessageId,
+-		};
+-		const measurements = {
+-			workspaceFileCount: report.workspaceFileCount,
+-			changedFileCount: report.changedFileCount,
+-			diffSizeBytes: report.diffSizeBytes,
+-			repoIndex: 0,
+-			repoCount: 1,
+-		};
+-		const { headBranchName: _, fileRelativePaths: _2, ...internalProperties } = properties;
+-		const [enhancedProperties, internalMultiplexedProperties] = await Promise.all([
+-			multiplexProperties(properties),
+-			multiplexProperties(internalProperties),
+-		]);
+-		restricted.sendEnhancedGHTelemetryEventForContext(context, 'request.repoInfo', enhancedProperties, measurements);
+-		restricted.sendInternalMSFTTelemetryEventForContext(context, 'request.repoInfo', internalMultiplexedProperties, measurements);
+ 	}
+ 
+ 	requestTokenUsage(report: { clientContext: IAgentHostClientTelemetryContext; telemetryContext?: IAgentTelemetryContext; provider: string; session: string; owner: string; requestId: string; parentTurnId?: string; parentToolCallId?: string; subagentKind?: AgentSubagentKind; selectedModel?: string; selectedModelTelemetryKind?: AgentHostModelTelemetryKind; modelTelemetryKind?: AgentHostModelTelemetryKind; result: AgentHostTurnResult; summary: IAgentTokenUsageSummary }): void {
+-		const session = report.owner;
+-		const isSubagent = report.subagentKind !== undefined || isSubagentSession(session);
+-		const { model: usageModel, reasoningEffort, ...summary } = report.summary;
+-		const model = usageModel === 'auto' ? 'unknown' : toTelemetryModel(usageModel, report.modelTelemetryKind) ?? 'unknown';
+-		const selectedModel = toTelemetryModel(report.selectedModel, report.selectedModelTelemetryKind);
+-		const effort = isReasoningEffortLevel(reasoningEffort) ? reasoningEffort : undefined;
+-		this._telemetryService.publicLog2<IRequestTokenUsageEvent, RequestTokenUsageClassification>('agentHost.requestTokenUsage', {
+-			...toInitiatorTelemetry(report.clientContext),
+-			...toCopilotTelemetryData(report.telemetryContext),
+-			...summary,
+-			provider: report.provider,
+-			agentSessionId: AgentSession.id(session),
+-			chatSessionId: getTelemetryChatSessionId(report.session),
+-			requestId: report.requestId,
+-			parentTurnId: report.parentTurnId,
+-			parentToolCallId: report.parentToolCallId,
+-			isSubagentSession: isSubagent,
+-			...toSubagentKindTelemetry(isSubagent, report.subagentKind),
+-			model,
+-			...(selectedModel !== undefined ? { selectedModel } : {}),
+-			...(effort !== undefined ? { reasoningEffort: effort } : {}),
+-			result: report.result,
+-			usageAccountingVersion: 1,
+-			inputTokenSemantics: 'sdkReported',
+-			usageRecordSource: 'sdkUsageEvent',
+-			reasoningEffortSource: 'sdkReported',
+-		});
+ 	}
+ 
+ 	turnCompleted(report: IAgentHostTurnCompletedReport): void {
+-		const session = report.owner;
+-		const chatSessionId = getTelemetryChatSessionId(report.session);
+-		const isSubagent = report.subagentKind !== undefined || isSubagentSession(session);
+-		const subagentKindTelemetry = toSubagentKindTelemetry(isSubagent, report.subagentKind);
+-		const model = toTelemetryModel(report.model, report.modelTelemetryKind);
+-		const providerStages = toProviderStageMeasurements(report.providerStageDurationsMs);
+-		const providerTimings = report.providerTimings?.length ? report.providerTimings.map(sanitizeAgentHostProviderTiming).filter(timing => timing !== undefined) : undefined;
+-		this._otelService?.emitTurnTiming({
+-			provider: report.provider,
+-			agentSessionId: AgentSession.id(session),
+-			chatId: getAgentHostChatId(report.session),
+-			turnId: report.turnId,
+-			isSubagentSession: isSubagent,
+-			result: report.result,
+-			totalTime: report.totalTime,
+-			timeToProviderDispatch: report.sendDispatchedMs,
+-			timeToFirstProgress: report.timeToFirstProgress,
+-			timeToFirstSubstantiveProgress: report.timeToFirstSubstantiveProgress,
+-			sendStageWorkingDirectoryMs: report.sendStageDurationsMs?.get('workingDirectory'),
+-			sendStageModelSelectionMs: report.sendStageDurationsMs?.get('modelSelection'),
+-			sendStageAttachmentsMs: report.sendStageDurationsMs?.get('attachments'),
+-			sendStageContributionsMs: report.sendStageDurationsMs?.get('contributions'),
+-			sendStageProviderPreparationMs: report.sendStageDurationsMs?.get('providerPreparation'),
+-			sendStageCheckpointMs: report.sendStageDurationsMs?.get('checkpoint'),
+-			...providerStages,
+-			providerTimings,
+-			hostRootTurnOrdinal: report.hostRootTurnOrdinal,
+-			hostProcessAgeMs: report.hostProcessAgeMs,
+-			titleGenerationStrategy: report.titleGenerationStrategy,
+-		});
+-		this._telemetryService.publicLog2<IAgentHostTurnCompletedEvent, IAgentHostTurnCompletedClassification>('agentHost.turnCompleted', {
+-			...toInitiatorTelemetry(report.clientContext),
+-			...toCopilotTelemetryData(report.telemetryContext),
+-			...(report.provider === 'codex' ? getCodexAccountTelemetryData(report.providerTelemetryContext?.codex) : undefined),
+-			...(report.provider === 'codex' ? { codexModelProvider: report.codexModelProvider ?? 'unknown' } : {}),
+-			...prewarmedSessionTelemetry(report.providerTelemetryContext),
+-			...(report.hostRootTurnOrdinal !== undefined ? { hostRootTurnOrdinal: report.hostRootTurnOrdinal } : {}),
+-			...(report.hostProcessAgeMs !== undefined ? { hostProcessAgeMs: report.hostProcessAgeMs } : {}),
+-			...(report.titleGenerationStrategy !== undefined ? { titleGenerationStrategy: report.titleGenerationStrategy } : {}),
+-			provider: report.provider,
+-			agentSessionId: AgentSession.id(session),
+-			chatSessionId,
+-			isSubagentSession: isSubagent,
+-			...subagentKindTelemetry,
+-			turnId: report.turnId,
+-			parentTurnId: report.parentTurnId,
+-			parentToolCallId: report.parentToolCallId,
+-			subagentTaskModelSource: report.subagentTaskModelSource,
+-			timeToFirstProgress: report.timeToFirstProgress,
+-			timeToFirstSubstantiveProgress: report.timeToFirstSubstantiveProgress,
+-			timeToFirstEdit: report.timeToFirstEditMs,
+-			startedWithSteering: report.startedWithSteering,
+-			receivedSteering: report.receivedSteering,
+-			sendStageWorkingDirectoryMs: report.sendStageDurationsMs?.get('workingDirectory'),
+-			sendStageModelSelectionMs: report.sendStageDurationsMs?.get('modelSelection'),
+-			sendStageAttachmentsMs: report.sendStageDurationsMs?.get('attachments'),
+-			sendStageContributionsMs: report.sendStageDurationsMs?.get('contributions'),
+-			sendStageProviderPreparationMs: report.sendStageDurationsMs?.get('providerPreparation'),
+-			sendStageCheckpointMs: report.sendStageDurationsMs?.get('checkpoint'),
+-			timeToProviderDispatch: report.sendDispatchedMs,
+-			...providerStages,
+-			totalTime: report.totalTime,
+-			result: report.result,
+-			model,
+-			modelSelectionKind: report.modelSelectionKind,
+-			...toFusionTurnTelemetry(report),
+-			isBYOK: report.modelTelemetryKind === undefined ? undefined : report.modelTelemetryKind === 'byok',
+-			permissionLevel: report.permissionLevel,
+-			interactionMode: report.interactionMode,
+-			messageOriginKind: report.messageOriginKind,
+-			errorType: report.failure?.error.errorType,
+-			failureStage: report.failure?.stage,
+-			isMultiRoot: report.isMultiRoot,
+-			folderCount: report.folderCount,
+-			billedNanoAiu: report.billedNanoAiu,
+-			directPromptTokenCount: report.directPromptTokenCount,
+-			directPromptCacheTokenCount: report.directPromptCacheTokenCount,
+-			directCompletionTokenCount: report.directCompletionTokenCount,
+-			directBilledNanoAiu: report.directBilledNanoAiu,
+-			modelCallCount: report.modelCallCount,
+-		});
+-		if (providerTimings?.length) {
+-			const providerTimingContext = {
+-				...toInitiatorTelemetry(report.clientContext),
+-				...toCopilotTelemetryData(report.telemetryContext),
+-				schemaVersion: 2,
+-				provider: report.provider,
+-				agentSessionId: AgentSession.id(session),
+-				chatSessionId,
+-				turnId: report.turnId,
+-				result: report.result,
+-				model,
+-			};
+-			for (const [group, measurements] of groupAgentHostProviderTimings(providerTimings)) {
+-				this._telemetryService.publicLog2<AgentHostProviderTimingEvent, AgentHostProviderTimingClassification>('agentHost.providerTiming', {
+-					...providerTimingContext, group, ...measurements,
+-				});
+-			}
+-		}
+-		if (report.failure) {
+-			const { providerCallId, serviceRequestId } = readAgentErrorTelemetryMeta(report.failure.error);
+-			this._telemetryService.publicLogError2<IAgentHostTurnFailedEvent, IAgentHostTurnFailedClassification>('agentHost.turnFailed', {
+-				...toInitiatorTelemetry(report.clientContext),
+-				...toCopilotTelemetryData(report.telemetryContext),
+-				provider: report.provider,
+-				agentSessionId: AgentSession.id(session),
+-				chatSessionId,
+-				isSubagentSession: isSubagent,
+-				...subagentKindTelemetry,
+-				turnId: report.turnId,
+-				messageOriginKind: report.messageOriginKind,
+-				failureStage: report.failure.stage,
+-				...toFusionTurnTelemetry(report),
+-				...prewarmedSessionTelemetry(report.providerTelemetryContext),
+-				errorType: report.failure.error.errorType,
+-				errorName: report.failure.errorName,
+-				errorCode: report.failure.errorCode,
+-				providerCallId,
+-				serviceRequestId,
+-				msg: report.failure.error.message,
+-				callstack: report.failure.errorStack ?? report.failure.error.stack,
+-			});
+-		}
+ 	}
+ 
+ 	/**
+@@ -1658,42 +1404,6 @@ export class AgentHostTelemetryReporter {
+ 	 * expected waits and which indicate a real hang.
+ 	 */
+ 	turnHung(report: IAgentHostTurnHungReport): void {
+-		const session = report.owner;
+-		const isSubagent = report.subagentKind !== undefined || isSubagentSession(session);
+-		this._telemetryService.publicLog2<IAgentHostTurnHungEvent, IAgentHostTurnHungClassification>('agentHost.turnHung', {
+-			...toInitiatorTelemetry(report.clientContext),
+-			...toCopilotTelemetryData(report.telemetryContext),
+-			...(report.provider === 'codex' ? getCodexAccountTelemetryData(report.providerTelemetryContext?.codex) : undefined),
+-			provider: report.provider,
+-			agentSessionId: AgentSession.id(session),
+-			chatSessionId: getTelemetryChatSessionId(report.session),
+-			isSubagentSession: isSubagent,
+-			...toSubagentKindTelemetry(isSubagent, report.subagentKind),
+-			turnId: report.turnId,
+-			messageOriginKind: report.messageOriginKind,
+-			hangReason: report.hangReason,
+-			isExpected: report.hangReason === 'waitingOnUser' || report.hangReason === 'runningTool',
+-			hadAnyProgress: report.hadAnyProgress,
+-			lastActivityKind: normalizeTurnActivityKind(report.lastActivityKind),
+-			currentStage: report.currentStage,
+-			providerDiagnosticState: report.providerDiagnosticState,
+-			...(report.providerDiagnosticSnapshot?.state === 'available' ? {
+-				providerCallState: report.providerDiagnosticSnapshot.providerCallState,
+-				providerTurnStarted: report.providerDiagnosticSnapshot.providerTurnStarted,
+-				providerSessionState: report.providerDiagnosticSnapshot.providerSessionState,
+-			} : {}),
+-			initiatorClientConnectionState: report.initiatorClientConnectionState,
+-			blockedOn: report.blockedOn,
+-			toolId: report.toolId,
+-			toolSourceKind: report.toolSourceKind,
+-			inFlightToolCallCount: report.inFlightToolCallCount,
+-			quietTimeMs: report.quietTimeMs,
+-			turnElapsedMs: report.turnElapsedMs,
+-			model: toTelemetryModel(report.model, report.modelTelemetryKind),
+-			modelSelectionKind: report.modelSelectionKind,
+-			...toFusionTurnTelemetry(report),
+-			permissionLevel: report.permissionLevel,
+-		});
+ 	}
+ 
+ 	/** Paired recovery event for a turn previously reported by {@link turnHung}. */
+diff --git a/src/vs/platform/agentHost/node/agentHostTurnTelemetryContext.ts b/src/vs/platform/agentHost/node/agentHostTurnTelemetryContext.ts
+index 46557887..0ad24f7a 100644
+--- a/src/vs/platform/agentHost/node/agentHostTurnTelemetryContext.ts
++++ b/src/vs/platform/agentHost/node/agentHostTurnTelemetryContext.ts
+@@ -12,7 +12,6 @@ import { SessionConfigKey } from '../common/sessionConfigKeys.js';
+ import type { SessionConfigState, URI as ProtocolURI, ModelSelection } from '../common/state/sessionState.js';
+ import { URI } from '../../../base/common/uri.js';
+ import { refineModelSelectionKindForLocalModels, type AgentHostModelSelectionKind, type AgentHostModelTelemetryKind } from './agentHostTelemetryReporter.js';
+-import { getCodexAccountTelemetryData } from './codex/codexAccountTelemetry.js';
+ 
+ export interface IAgentHostTurnTelemetryContext {
+ 	readonly model: string | undefined;
+diff --git a/src/vs/platform/agentHost/node/agentService.ts b/src/vs/platform/agentHost/node/agentService.ts
+index e84f1a7e..a1f54bd0 100644
+--- a/src/vs/platform/agentHost/node/agentService.ts
++++ b/src/vs/platform/agentHost/node/agentService.ts
+@@ -52,7 +52,7 @@ import type { InvokeChangesetOperationParams, InvokeChangesetOperationResult } f
+ import { AhpErrorCodes, AHP_SESSION_NOT_FOUND, AuthenticateTargetKind, ContentEncoding, JSON_RPC_INTERNAL_ERROR, JsonRpcErrorCodes, ProtocolError, ResourceChangeType, type CreateResourceWatchParams, type CreateResourceWatchResult, type ResourceCopyParams, type ResourceCopyResult, type ResourceDeleteParams, type ResourceDeleteResult, type ResourceListResult, type ResourceMkdirParams, type ResourceMkdirResult, type ResourceMoveParams, type ResourceMoveResult, type ResourceReadResult, type ResourceResolveParams, type ResourceResolveResult, type ResourceWatchState, type ResourceWriteParams, type ResourceWriteResult, type IStateSnapshot } from '../common/state/sessionProtocol.js';
+ import { ChangesSummary, ChatInteractivity, ChatOriginKind, MessageAttachmentKind, PendingMessageKind, TerminalClaimKind, TerminalLifecycleStatus, type Annotation, type AnnotationEntry, type AnnotationOrigin, type AnnotationsState, type ChatOrigin, type ChatState, type Customization, type Message, type MessageAttachment, type MessageResourceAttachment, type TerminalState, type TextRange, type ToolResultTerminalContent, type SystemNotificationResponsePart } from '../common/state/protocol/state.js';
+ import type { ChatConfigChangedAction, ChatIsArchivedChangedAction, ChatIsReadChangedAction, ChatPendingMessageSetAction, ChatTurnStartedAction, SessionConfigChangedAction } from '../common/state/protocol/actions.js';
+-import { getAgentHostChatId, isAhpAutomationCatalogChannel, isAhpAutomationRunChannel, ISessionGitState, MessageKind, ResponsePartKind, SESSION_META_GITHUB_KEY, SESSION_META_GIT_KEY, SESSION_META_MULTI_ROOT_KEY, SESSION_META_SOURCE_CONTROL_KEY, AH_META_AUTO_ARCHIVED_AT_DB_KEY, AH_META_CREATED_BY_SESSION_DB_KEY, readSessionCreationReference, readSessionComparisonMetadata, readSessionSpawnDepth, withSessionSpawnDepth, withSessionCreationReference, parseSessionCreationReference, SessionLifecycle, SessionStatus, ToolCallStatus, ToolResultContentType, TurnState, AH_META_HAS_WORKSPACE_TRANSITIONS_DB_KEY, AH_META_WORKSPACE_CONVERSION_QUARANTINED_DB_KEY, AH_META_WORKSPACELESS_DB_KEY, AH_META_EHCLI_ADOPTED_DB_KEY, AH_META_IS_ARCHIVED_DB_KEY, AH_META_IS_DONE_DB_KEY, AH_META_IS_READ_DB_KEY, AH_META_DEFAULT_CHAT_IS_READ_DB_KEY, buildResourceWatchChannelUri, buildSubagentSessionUriPrefix, getErrorResponsePart, getSessionChatResource, isAhpChatChannel, isChatInSessionReadAggregate, isChatReadOnly, isSessionChatArchived, isSessionStatusArchived, isSessionStatusRead, isSubagentSession, needsSessionGitStateRefresh, parseResourceWatchChannelUri, parseSessionGitData, parseSessionMultiRootMetadata, parseSubagentSessionUri, readSessionExternal, readSessionGitHubState, readSessionGitState, readSessionMultiRootMetadata, readSessionSourceControlState, readSessionWorkspaceless, readSessionScratchFolders, withSessionScratchFolders, withSessionExternal, withSessionGitData, withSessionGitHubState, withSessionGitState, withSessionHasWorkspaceTransitions, withSessionMultiRootMetadata, withSessionSourceControlState, withSessionStatusFlag, withSessionWorkspaceless, withSessionEhcliAdopted, withSessionEhcliLastMigratedTurn, AH_META_EHCLI_LAST_TURN_DB_KEY, withSessionFolderPickerDecision, readSessionFolderPickerDecision, parseSessionFolderPickerDecision, SESSION_META_FOLDER_PICKER_KEY, getAllSessionRelatedPullRequestUrls, readSessionEhcliAdoptable, readSessionEhcliAdopted, readSessionGitHubData, readWorkingDirectoryKey, withSessionGitHubData, parseSessionGitHubData, parseSessionGitHubState, readSessionGitHubStateInput, withMigratedSessionGitHubState, withReplacedFolderGitHubState, withMostRecentRelatedSessionPullRequest, SESSION_META_GITHUB_DATA_KEY, withWorkingDirectoryKey, withWorkingDirectoryScopeId, type ISessionGitHubState, type ISessionSourceControlState, type ChatSummary, type ISessionWithDefaultChat, type ProjectInfo, type SessionConfigState, type SessionSummary, type SessionSummaryMeta, type ToolResultSubagentContent, type Turn } from '../common/state/sessionState.js';
++import { getAgentHostChatId, isAhpAutomationCatalogChannel, isAhpAutomationRunChannel, ISessionGitState, MessageKind, ResponsePartKind, SESSION_META_GITHUB_KEY, SESSION_META_GIT_KEY, SESSION_META_MULTI_ROOT_KEY, SESSION_META_SOURCE_CONTROL_KEY, AH_META_AUTO_ARCHIVED_AT_DB_KEY, AH_META_CREATED_BY_SESSION_DB_KEY, readSessionCreationReference, readSessionSpawnDepth, withSessionSpawnDepth, withSessionCreationReference, parseSessionCreationReference, SessionLifecycle, SessionStatus, ToolCallStatus, ToolResultContentType, TurnState, AH_META_HAS_WORKSPACE_TRANSITIONS_DB_KEY, AH_META_WORKSPACE_CONVERSION_QUARANTINED_DB_KEY, AH_META_WORKSPACELESS_DB_KEY, AH_META_EHCLI_ADOPTED_DB_KEY, AH_META_IS_ARCHIVED_DB_KEY, AH_META_IS_DONE_DB_KEY, AH_META_IS_READ_DB_KEY, AH_META_DEFAULT_CHAT_IS_READ_DB_KEY, buildResourceWatchChannelUri, buildSubagentSessionUriPrefix, getErrorResponsePart, getSessionChatResource, isAhpChatChannel, isChatInSessionReadAggregate, isChatReadOnly, isSessionChatArchived, isSessionStatusArchived, isSessionStatusRead, isSubagentSession, needsSessionGitStateRefresh, parseResourceWatchChannelUri, parseSessionGitData, parseSessionMultiRootMetadata, parseSubagentSessionUri, readSessionExternal, readSessionGitHubState, readSessionGitState, readSessionMultiRootMetadata, readSessionSourceControlState, readSessionWorkspaceless, readSessionScratchFolders, withSessionScratchFolders, withSessionExternal, withSessionGitData, withSessionGitHubState, withSessionGitState, withSessionHasWorkspaceTransitions, withSessionMultiRootMetadata, withSessionSourceControlState, withSessionStatusFlag, withSessionWorkspaceless, withSessionEhcliAdopted, withSessionEhcliLastMigratedTurn, AH_META_EHCLI_LAST_TURN_DB_KEY, withSessionFolderPickerDecision, readSessionFolderPickerDecision, parseSessionFolderPickerDecision, SESSION_META_FOLDER_PICKER_KEY, getAllSessionRelatedPullRequestUrls, readSessionEhcliAdoptable, readSessionEhcliAdopted, readSessionGitHubData, readWorkingDirectoryKey, withSessionGitHubData, parseSessionGitHubData, parseSessionGitHubState, readSessionGitHubStateInput, withMigratedSessionGitHubState, withReplacedFolderGitHubState, withMostRecentRelatedSessionPullRequest, SESSION_META_GITHUB_DATA_KEY, withWorkingDirectoryKey, withWorkingDirectoryScopeId, type ISessionGitHubState, type ISessionSourceControlState, type ChatSummary, type ISessionWithDefaultChat, type ProjectInfo, type SessionConfigState, type SessionSummary, type SessionSummaryMeta, type ToolResultSubagentContent, type Turn } from '../common/state/sessionState.js';
+ import { readToolCallMeta } from '../common/meta/agentToolCallMeta.js';
+ import { isHostSnapshotAttachment, toHostSnapshotAttachmentMeta } from '../common/meta/agentSnapshotAttachmentMeta.js';
+ import { readEphemeralSessionMeta, withEphemeralSessionMeta } from '../common/meta/agentEphemeralSessionMeta.js';
+@@ -149,7 +149,6 @@ import { readChatSandboxState, withChatSandboxState } from '../common/meta/agent
+ import { AgentChatMoveRefusal, AgentChatMoveRefusedError, ChatMoveConfigKey, chatMoveRootConfigSchema, type AgentChatMoveDestination } from '../common/agentHostChatMove.js';
+ import { ITelemetryService } from '../../telemetry/common/telemetry.js';
+ import { IAgentHostStartupPerformance, type IAgentHostStartupMetrics, type IAgentHostStartupTiming } from './agentHostStartupPerformance.js';
+-import { IAgentHostOTelService } from '../common/otel/agentHostOTelService.js';
+ import { AgentHostAuthenticationService, SESSION_CREDENTIAL_PRINCIPAL_KEY } from './agentHostAuthenticationService.js';
+ import { updateAgentHostTelemetryLevelFromConfig } from './agentHostTelemetryService.js';
+ import type { IAgentHostCopilotSkuClassification, IAgentHostCopilotSkuTelemetry } from './agentHostTelemetryReporter.js';
+diff --git a/src/vs/platform/agentHost/node/agentServiceComposition.ts b/src/vs/platform/agentHost/node/agentServiceComposition.ts
+index 77797ce6..95be4c3d 100644
+--- a/src/vs/platform/agentHost/node/agentServiceComposition.ts
++++ b/src/vs/platform/agentHost/node/agentServiceComposition.ts
+@@ -20,7 +20,7 @@ import { IAgentHostReviewService } from '../common/agentHostReviewService.js';
+ import { AgentHostLaunchKind } from '../common/agentHostTelemetry.js';
+ import { AgentHostAgentOrchestrationLimitsConfigKey, platformRootSchema, AgentHostArtifactIntegrationsConfigKey } from '../common/agentHostSchema.js';
+ import { AH_META_AUTO_ARCHIVED_AT_DB_KEY, ResponsePartKind } from '../common/state/sessionState.js';
+-import { CLAUDE_AGENT_PROVIDER_ID, CODEX_AGENT_PROVIDER_ID, type AgentProvider, type IAgent } from '../common/agent.js';
++import { type AgentProvider, type IAgent } from '../common/agent.js';
+ import { IAgentHostSessionStateStore } from '../common/agentHostSessionStateStore.js';
+ import { toAgentSystemNotificationMeta } from '../common/meta/agentSystemNotificationMeta.js';
+ import { ISessionDataService } from '../common/sessionDataService.js';
+diff --git a/src/vs/platform/agentHost/node/protocolServerHandler.ts b/src/vs/platform/agentHost/node/protocolServerHandler.ts
+index 47f8e8b7..a9162320 100644
+--- a/src/vs/platform/agentHost/node/protocolServerHandler.ts
++++ b/src/vs/platform/agentHost/node/protocolServerHandler.ts
+@@ -45,9 +45,6 @@ import { CancelWorktreeDiskUsageExtensionMethod, cancelWorktreeDiskUsageParamsVa
+ import { SessionWorktreeCleanupExtensionMethod, sessionWorktreeCleanupParamsValidator } from '../common/agentHostWorktreeCleanup.js';
+ import { AgentHostWorktreeCleanupCapabilityMetaKey } from '../common/meta/agentHostWorktreeCleanupMeta.js';
+ import { savedChatToDto } from '../common/agentHostSavedChat.js';
+-import { IAgentHostOTelService } from '../common/otel/agentHostOTelService.js';
+-import { agentHostFirstResponseValidator } from '../common/otel/agentHostTiming.js';
+-import { chatUserInteractionAttributes, chatUserInteractionValidator } from '../../otel/common/chatUserInteraction.js';
+ import { isAgentDevContainerWorktreeHandle } from '../common/meta/agentDevContainerWorktreeMeta.js';
+ import { isActionEnvelopeRelevantToSubscriptionUris } from '../common/state/agentSubscription.js';
+ import { IS_CLIENT_DISPATCHABLE } from '../common/state/protocol/action-origin.generated.js';
+@@ -1099,7 +1096,7 @@ export class ProtocolServerHandler extends Disposable implements IAgentHostClien
+ 						...getAgentHostExtensionInitializeResultMeta(
+ 							!!this._agentService.removeSessionArtifact,
+ 							!!client.devContainers,
+-							this._otelService?.diagnosticsEnabled,
++							false,
+ 							!!this._agentService.importSession,
+ 							!!this._agentService.readSavedChat && transport.relayClientId === undefined && !transport.relayPassive,
+ 							!!this._agentService.completeSavedChatContinuation && transport.relayClientId === undefined && !transport.relayPassive,
+diff --git a/src/vs/platform/extensionManagement/common/extensionGalleryService.ts b/src/vs/platform/extensionManagement/common/extensionGalleryService.ts
+index 41b763a2..7aa0e736 100644
+--- a/src/vs/platform/extensionManagement/common/extensionGalleryService.ts
++++ b/src/vs/platform/extensionManagement/common/extensionGalleryService.ts
+@@ -1989,14 +1989,26 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
+ 			return { malicious: [], deprecated: {}, search: [], autoUpdate: {} };
+ 		}
+ 
++		const excludeUnsafes = this.configurationService.getValue('extensions.excludeUnsafes') ?? true;
++
++		if (!excludeUnsafes) {
++			return { malicious: [], deprecated: {}, search: [] };
++		}
++
+ 		const accessToken = await this.extensionGalleryManifestService.getAccessToken(this.extensionsControlUrl);
+-		const context = await this.requestService.request({
++		const requestOptions: IRequestOptions = {
+ 			type: 'GET',
+ 			url: this.extensionsControlUrl,
+ 			headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+ 			timeout: this.getRequestTimeout(),
+ 			callSite: 'extensionGalleryService.getExtensionsControlManifest'
+-		}, CancellationToken.None);
++		};
++
++		if (!isWeb) {
++			requestOptions.headers = { ...requestOptions.headers, Connection: 'close' };
++		}
++
++		const context = await this.requestService.request(requestOptions, CancellationToken.None);
+ 
+ 		if (context.res.statusCode !== 200) {
+ 			throw new Error('Could not get extensions report.');
+diff --git a/src/vs/platform/policy/test/node/nativeManagedSettingsService.test.ts b/src/vs/platform/policy/test/node/nativeManagedSettingsService.test.ts
+index d1b057e8..0c492ae5 100644
+--- a/src/vs/platform/policy/test/node/nativeManagedSettingsService.test.ts
++++ b/src/vs/platform/policy/test/node/nativeManagedSettingsService.test.ts
+@@ -72,7 +72,7 @@ suite('NativeManagedSettingsService', () => {
+ 	test('applies native telemetry file path updates and removals without watcher metadata', async () => {
+ 		const filePath = 'telemetry.filePath';
+ 		let onDidChange: ((update: Record<string, PolicyValue | undefined>) => void) | undefined;
+-		const watcherFactory: NativePolicyWatcherFactory = (_productName, _policies, callback) => {
++		const watcherFactory: NativePolicyWatcherFactory = (_vendorName, _productName, _policies, callback) => {
+ 			onDidChange = callback;
+ 			callback({});
+ 			return Disposable.None;
+@@ -98,7 +98,7 @@ suite('NativeManagedSettingsService', () => {
+ 	test('observes strict marketplace policy without a configuration registration and preserves channel precedence', async () => {
+ 		const key = COPILOT_STRICT_MARKETPLACES_KEY;
+ 		let update: ((values: Record<string, PolicyValue | undefined>) => void) | undefined;
+-		const watcherFactory: NativePolicyWatcherFactory = (_productName, policies, callback) => {
++		const watcherFactory: NativePolicyWatcherFactory = (_vendorName, _productName, policies, callback) => {
+ 			assert.deepStrictEqual(policies[key], { type: 'string' });
+ 			update = callback;
+ 			callback({ [key]: '[]' });
+@@ -121,7 +121,7 @@ suite('NativeManagedSettingsService', () => {
+ 	for (const leaf of ['prompts', 'responses', 'toolArguments', 'toolOutput', 'policyDetail']) {
+ 		test(`native capture.${leaf} selects telemetry without a corresponding Local capture policy`, async () => {
+ 			const key = `telemetry.capture.${leaf}`;
+-			const watcherFactory: NativePolicyWatcherFactory = (_productName, policies, callback) => {
++			const watcherFactory: NativePolicyWatcherFactory = (_vendorName, _productName, policies, callback) => {
+ 				assert.deepStrictEqual(policies[key], { type: 'boolean' });
+ 				callback({ [key]: false });
+ 				return Disposable.None;
+@@ -137,7 +137,7 @@ suite('NativeManagedSettingsService', () => {
+ 	test('without observed declared telemetry keys, native delivery leaves the server block active', async () => {
+ 		let onDidChange: ((update: Record<string, PolicyValue | undefined>) => void) | undefined;
+ 		const key = 'telemetry.capture.prompts';
+-		const watcherFactory: NativePolicyWatcherFactory = (_productName, policies, callback) => {
++		const watcherFactory: NativePolicyWatcherFactory = (_vendorName, _productName, policies, callback) => {
+ 			assert.deepStrictEqual({
+ 				block: policies.telemetry,
+ 				unknown: policies['telemetry.futureControl'],
+@@ -170,7 +170,7 @@ suite('NativeManagedSettingsService', () => {
+ 			'permissions.limitTo': { type: 'string' },
+ 		};
+ 		let watched = {};
+-		const service = disposables.add(new NativeManagedSettingsService(new NullLogService(), 'com.github.copilot', undefined, (_name, policies, callback) => {
++		const service = disposables.add(new NativeManagedSettingsService(new NullLogService(), 'com.github.copilot', undefined, (_vendorName, _name, policies, callback) => {
+ 			watched = Object.fromEntries(Object.entries(policies).filter(([key]) => key.startsWith('permissions.')));
+ 			callback({ 'permissions.disableAssistedPermissionsMode': false, 'permissions.defaultMode': 'manual' });
+ 			return Disposable.None;
+diff --git a/src/vs/workbench/api/common/extHost.api.impl.ts b/src/vs/workbench/api/common/extHost.api.impl.ts
+index 61dd433e..cc15a67d 100644
+--- a/src/vs/workbench/api/common/extHost.api.impl.ts
++++ b/src/vs/workbench/api/common/extHost.api.impl.ts
+@@ -2005,9 +2005,11 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
+ 		// namespace: github
+ 		const github = createGitHubApi(extension, extHostGitHub);
+ 
++		const version = initData.version.replace(/^([0-9]+\.[0-9]+\.[0-5]).*$/, '$1');
++
+ 		// eslint-disable-next-line local/code-no-dangerous-type-assertions
+ 		return <typeof vscode>{
+-			version: initData.version,
++			version,
+ 			// namespaces
+ 			ai,
+ 			authentication,
+diff --git a/src/vs/workbench/contrib/issue/browser/baseIssueReporterService.ts b/src/vs/workbench/contrib/issue/browser/baseIssueReporterService.ts
+index 42d41434..bb462eaa 100644
+--- a/src/vs/workbench/contrib/issue/browser/baseIssueReporterService.ts
++++ b/src/vs/workbench/contrib/issue/browser/baseIssueReporterService.ts
+@@ -83,7 +83,7 @@ export class BaseIssueReporterService extends Disposable {
+ 		public product: IProductConfiguration,
+ 		public readonly window: Window,
+ 		public readonly isWeb: boolean,
+-		private readonly fetcher: typeof fetch = (input, init) => fetch(input, init),
++		public readonly fetcher: typeof fetch = (input, init) => fetch(input, init),
+ 		@IIssueFormService public readonly issueFormService: IIssueFormService,
+ 		@IThemeService public readonly themeService: IThemeService,
+ 		@IFileService public readonly fileService: IFileService,
+diff --git a/src/vs/workbench/contrib/search/browser/searchWidget.ts b/src/vs/workbench/contrib/search/browser/searchWidget.ts
+index 84ff082d..ddd16585 100644
+--- a/src/vs/workbench/contrib/search/browser/searchWidget.ts
++++ b/src/vs/workbench/contrib/search/browser/searchWidget.ts
+@@ -317,7 +317,7 @@ export class SearchWidget extends Widget {
+ 			reducedFindWidget: false,
+ 		});
+ 		if (this.replaceInput) {
+-			this.replaceInput.width = width - 28;
++			this.replaceInput.width = width - FONT.sidebarSize28;
+ 			this.replaceInput.inputBox.layout();
+ 		}
+ 	}
+diff --git a/src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts b/src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts
+index 0a389c3e..dfba0b63 100644
+--- a/src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts
++++ b/src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts
+@@ -120,6 +120,7 @@ type GettingStartedActionEvent = {
+ };
+ 
+ type RecentEntry = (IRecentFolder | IRecentWorkspace) & { id: string };
++type AnnouncementEntry = { id: string, title: string, url: string };
+ 
+ /**
+  * Sets the classes through which the page's CSS lays out the Agents window graphic: shown with room
+@@ -132,6 +133,9 @@ function setAgentsWindowGraphicLayout(categoriesContainer: HTMLElement, layout:
+ }
+ 
+ const REDUCED_MOTION_KEY = 'workbench.welcomePage.preferReducedMotion';
++
++const BUILTIN_ANNOUNCEMENTS: AnnouncementEntry[] = [/* BUILTIN_ANNOUNCEMENTS */];
++
+ export class GettingStartedPage extends EditorPane {
+ 
+ 	public static readonly ID = 'gettingStartedPage';
+@@ -952,6 +956,7 @@ export class GettingStartedPage extends EditorPane {
+ 		const startList = this.buildStartList();
+ 		const recentList = this.buildRecentlyOpenedList();
+ 		const gettingStartedList = this.buildGettingStartedWalkthroughsList();
++		const announcementList = await this.buildAnnouncementList();
+ 
+ 		const footerChildren: HTMLElement[] = [];
+ 		const agentsWindowGraphic = this.categoriesSlideDisposables.add(this.instantiationService.createInstance(AgentsWindowGraphic));

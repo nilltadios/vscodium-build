@@ -1,0 +1,229 @@
+diff --git a/extensions/github/package.json b/extensions/github/package.json
+index d2303402..368bbc71 100644
+--- a/extensions/github/package.json
++++ b/extensions/github/package.json
+@@ -43,23 +43,6 @@
+         "command": "github.publish",
+         "title": "%command.publish%"
+       },
+-      {
+-        "command": "github.copyVscodeDevLink",
+-        "title": "%command.copyVscodeDevLink%"
+-      },
+-      {
+-        "command": "github.copyVscodeDevLinkFile",
+-        "title": "%command.copyVscodeDevLink%"
+-      },
+-      {
+-        "command": "github.copyVscodeDevLinkWithoutRange",
+-        "title": "%command.copyVscodeDevLink%"
+-      },
+-      {
+-        "command": "github.openOnVscodeDev",
+-        "title": "%command.openOnVscodeDev%",
+-        "icon": "$(globe)"
+-      },
+       {
+         "command": "github.graph.openOnGitHub",
+         "title": "%command.openOnGitHub%",
+@@ -81,15 +64,6 @@
+         "icon": "$(git-pull-request)"
+       }
+     ],
+-    "continueEditSession": [
+-      {
+-        "command": "github.openOnVscodeDev",
+-        "when": "github.hasGitHubRepo",
+-        "qualifiedName": "Continue Working in vscode.dev",
+-        "category": "Remote Repositories",
+-        "remoteGroup": "virtualfs_44_vscode-vfs_2_web@2"
+-      }
+-    ],
+     "menus": {
+       "commandPalette": [
+         {
+@@ -108,67 +82,11 @@
+           "command": "github.graph.openOnGitHub",
+           "when": "false"
+         },
+-        {
+-          "command": "github.copyVscodeDevLink",
+-          "when": "false"
+-        },
+-        {
+-          "command": "github.copyVscodeDevLinkFile",
+-          "when": "false"
+-        },
+-        {
+-          "command": "github.copyVscodeDevLinkWithoutRange",
+-          "when": "false"
+-        },
+-        {
+-          "command": "github.openOnVscodeDev",
+-          "when": "false"
+-        },
+         {
+           "command": "github.timeline.openOnGitHub",
+           "when": "false"
+         }
+       ],
+-      "file/share": [
+-        {
+-          "command": "github.copyVscodeDevLinkFile",
+-          "when": "github.hasGitHubRepo && remoteName != 'codespaces'",
+-          "group": "0_vscode@0"
+-        }
+-      ],
+-      "editor/context/share": [
+-        {
+-          "command": "github.copyVscodeDevLink",
+-          "when": "github.hasGitHubRepo && resourceScheme != untitled && !isInEmbeddedEditor && remoteName != 'codespaces'",
+-          "group": "0_vscode@0"
+-        }
+-      ],
+-      "explorer/context/share": [
+-        {
+-          "command": "github.copyVscodeDevLinkWithoutRange",
+-          "when": "github.hasGitHubRepo && resourceScheme != untitled && !isInEmbeddedEditor && remoteName != 'codespaces'",
+-          "group": "0_vscode@0"
+-        }
+-      ],
+-      "editor/lineNumber/context": [
+-        {
+-          "command": "github.copyVscodeDevLink",
+-          "when": "github.hasGitHubRepo && resourceScheme != untitled && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on && remoteName != 'codespaces'",
+-          "group": "1_cutcopypaste@2"
+-        },
+-        {
+-          "command": "github.copyVscodeDevLink",
+-          "when": "github.hasGitHubRepo && resourceScheme != untitled && activeEditor == workbench.editor.notebook && remoteName != 'codespaces'",
+-          "group": "1_cutcopypaste@2"
+-        }
+-      ],
+-      "editor/title/context/share": [
+-        {
+-          "command": "github.copyVscodeDevLinkWithoutRange",
+-          "when": "github.hasGitHubRepo && resourceScheme != untitled && remoteName != 'codespaces'",
+-          "group": "0_vscode@0"
+-        }
+-      ],
+       "scm/historyItem/context": [
+         {
+           "command": "github.graph.openOnGitHub",
+diff --git a/extensions/github/src/commands.ts b/extensions/github/src/commands.ts
+index a8b69f10..053cf6c1 100644
+--- a/extensions/github/src/commands.ts
++++ b/extensions/github/src/commands.ts
+@@ -8,34 +8,9 @@ import { RefType } from './typings/git.constants.js';
+ import type { API as GitAPI, Repository } from './typings/git.d.ts';
+ import { publishRepository } from './publish.js';
+ import { DisposableStore, getRepositoryFromUrl } from './util.js';
+-import { LinkContext, getCommitLink, getLink, getVscodeDevHost } from './links.js';
++import { getCommitLink } from './links.js';
+ import { getOctokit } from './auth.js';
+ 
+-async function copyVscodeDevLink(gitAPI: GitAPI, useSelection: boolean, context: LinkContext, includeRange = true) {
+-	try {
+-		const permalink = await getLink(gitAPI, useSelection, true, getVscodeDevHost(), 'headlink', context, includeRange);
+-		if (permalink) {
+-			return vscode.env.clipboard.writeText(permalink);
+-		}
+-	} catch (err) {
+-		if (!(err instanceof vscode.CancellationError)) {
+-			vscode.window.showErrorMessage(err.message);
+-		}
+-	}
+-}
+-
+-async function openVscodeDevLink(gitAPI: GitAPI): Promise<vscode.Uri | undefined> {
+-	try {
+-		const headlink = await getLink(gitAPI, true, false, getVscodeDevHost(), 'headlink');
+-		return headlink ? vscode.Uri.parse(headlink) : undefined;
+-	} catch (err) {
+-		if (!(err instanceof vscode.CancellationError)) {
+-			vscode.window.showErrorMessage(err.message);
+-		}
+-		return undefined;
+-	}
+-}
+-
+ interface ResolvedSessionRepo {
+ 	repository: Repository;
+ 	remoteInfo: { owner: string; repo: string };
+@@ -187,18 +162,6 @@ export function registerCommands(gitAPI: GitAPI): vscode.Disposable {
+ 		}
+ 	}));
+ 
+-	disposables.add(vscode.commands.registerCommand('github.copyVscodeDevLink', async (context: LinkContext) => {
+-		return copyVscodeDevLink(gitAPI, true, context);
+-	}));
+-
+-	disposables.add(vscode.commands.registerCommand('github.copyVscodeDevLinkFile', async (context: LinkContext) => {
+-		return copyVscodeDevLink(gitAPI, false, context);
+-	}));
+-
+-	disposables.add(vscode.commands.registerCommand('github.copyVscodeDevLinkWithoutRange', async (context: LinkContext) => {
+-		return copyVscodeDevLink(gitAPI, true, context, false);
+-	}));
+-
+ 	disposables.add(vscode.commands.registerCommand('github.openOnGitHub', async (url: string, historyItemId: string) => {
+ 		const link = getCommitLink(url, historyItemId);
+ 		vscode.env.openExternal(vscode.Uri.parse(link));
+@@ -230,10 +193,6 @@ export function registerCommands(gitAPI: GitAPI): vscode.Disposable {
+ 		await openOnGitHub(apiRepository, item.id);
+ 	}));
+ 
+-	disposables.add(vscode.commands.registerCommand('github.openOnVscodeDev', async () => {
+-		return openVscodeDevLink(gitAPI);
+-	}));
+-
+ 	disposables.add(vscode.commands.registerCommand('github.createPullRequest', async (sessionResource: vscode.Uri | undefined, sessionMetadata: { worktreePath?: string } | undefined) => {
+ 		return createPullRequest(gitAPI, sessionResource, sessionMetadata);
+ 	}));
+diff --git a/extensions/github/src/extension.ts b/extensions/github/src/extension.ts
+index e6a44f51..8f2af5a9 100644
+--- a/extensions/github/src/extension.ts
++++ b/extensions/github/src/extension.ts
+@@ -15,7 +15,6 @@ import { GitBaseExtension } from './typings/git-base.js';
+ import { GithubRemoteSourcePublisher } from './remoteSourcePublisher.js';
+ import { GitHubBranchProtectionProviderManager } from './branchProtection.js';
+ import { GitHubCanonicalUriProvider } from './canonicalUriProvider.js';
+-import { VscodeDevShareProvider } from './shareProviders.js';
+ import { GitHubSourceControlHistoryItemDetailsProvider } from './historyItemDetailsProvider.js';
+ import { OctokitService } from './auth.js';
+ 
+@@ -107,7 +106,6 @@ function initializeGitExtension(context: ExtensionContext, octokitService: Octok
+ 						disposables.add(gitAPI.registerRemoteSourcePublisher(new GithubRemoteSourcePublisher(gitAPI)));
+ 						disposables.add(gitAPI.registerSourceControlHistoryItemDetailsProvider(new GitHubSourceControlHistoryItemDetailsProvider(gitAPI, octokitService, logger)));
+ 						disposables.add(new GitHubCanonicalUriProvider(gitAPI));
+-						disposables.add(new VscodeDevShareProvider(gitAPI));
+ 						setGitHubContext(gitAPI, disposables);
+ 
+ 						commands.executeCommand('setContext', 'git-base.gitEnabled', true);
+diff --git a/extensions/github/src/remoteSourceProvider.ts b/extensions/github/src/remoteSourceProvider.ts
+index bed2bb1a..2880f970 100644
+--- a/extensions/github/src/remoteSourceProvider.ts
++++ b/extensions/github/src/remoteSourceProvider.ts
+@@ -8,7 +8,7 @@ import { RemoteSourceProvider, RemoteSource, RemoteSourceAction } from './typing
+ import { getOctokit } from './auth.js';
+ import { Octokit } from '@octokit/rest';
+ import { getRepositoryFromQuery, getRepositoryFromUrl } from './util.js';
+-import { getBranchLink, getVscodeDevHost } from './links.js';
++import { getBranchLink } from './links.js';
+ 
+ type RemoteSourceResponse = {
+ 	readonly full_name: string;
+@@ -135,13 +135,6 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
+ 				const link = getBranchLink(url, branch);
+ 				env.openExternal(Uri.parse(link));
+ 			}
+-		}, {
+-			label: l10n.t('Checkout on vscode.dev'),
+-			icon: 'globe',
+-			run(branch: string) {
+-				const link = getBranchLink(url, branch, getVscodeDevHost());
+-				env.openExternal(Uri.parse(link));
+-			}
+ 		}];
+ 	}
+ }

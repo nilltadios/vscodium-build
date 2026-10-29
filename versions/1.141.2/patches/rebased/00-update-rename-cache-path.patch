@@ -1,0 +1,13 @@
+diff --git a/src/vs/platform/update/electron-main/updateService.win32.ts b/src/vs/platform/update/electron-main/updateService.win32.ts
+index 06092f10..d2a743fb 100644
+--- a/src/vs/platform/update/electron-main/updateService.win32.ts
++++ b/src/vs/platform/update/electron-main/updateService.win32.ts
+@@ -63,7 +63,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
+ 	private readonly setupMutexName: string;
+ 
+ 	private get cachePathSync(): string {
+-		return path.join(tmpdir(), `vscode-${this.productService.quality}-${this.productService.target}-${process.arch}`);
++		return path.join(tmpdir(), `${this.productService.applicationName}-${this.productService.quality}-${this.productService.target}-${process.arch}`);
+ 	}
+ 
+ 	@memoize

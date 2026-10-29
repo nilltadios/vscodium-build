@@ -181,3 +181,25 @@ Upstream sources:
 - https://github.com/microsoft/vscode/releases/tag/1.139.1
 - https://github.com/VSCodium/vscodium/tree/5a73682ca091082675b10c9dc3f348c1d824d94f
 - https://github.com/VSCodium/vscodium/blob/5a73682ca091082675b10c9dc3f348c1d824d94f/docs/howto-build.md
+
+## GitHub Actions builds
+
+`.github/workflows/build-appimage.yml` builds the newest finished workspace (highest
+`release_version` in `versions/*/config.json`) with that workspace's own `scripts/build.sh`,
+then publishes release `v<release_version>` with the AppImage, `.zsync`, `.sha256` and
+manifest. The AppImage embeds `gh-releases-zsync` update information, so AppImageUpdate or
+Gear Lever can update an installed copy from the latest release.
+
+Workflow after a local port: commit `versions/<new>/` (the root `.gitignore` keeps
+`sources/`, `work/`, `cache/`, `logs/`, `dist/` and most of `evidence/` local) and push.
+A push that does not raise the highest `release_version` builds nothing; run the workflow
+by hand with `force` to rebuild an existing release.
+
+CI differences from a local build, all set as environment variables in the workflow:
+`HOST_GUARDS=0` skips the home-root inventory and installed-editor checksum;
+`PODMAN_LIMITS=""` drops the cgroup limits that rootless podman cannot apply on hosted
+runners; `APPIMAGE_TOOLS_MIRROR` downloads appimagetool and the runtime from this
+repository's `build-tools` release, because upstream's `continuous` assets have moved
+since the pins were taken (the SHA-256 check against the lock files still applies);
+`APPIMAGE_UPDATE_INFO` embeds the update information. Without these variables
+the scripts behave exactly as before.

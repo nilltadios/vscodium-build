@@ -1,0 +1,37 @@
+diff --git a/remote/package-lock.json b/remote/package-lock.json
+index 4e2d18b1..852faeb2 100644
+--- a/remote/package-lock.json
++++ b/remote/package-lock.json
+@@ -52,6 +52,7 @@
+         "ssh2": "^1.16.0",
+         "tar": "^7.5.20",
+         "tas-client": "0.4.6",
++        "tslib": "^2.6.3",
+         "vscode-oniguruma": "1.7.0",
+         "vscode-regexpp": "^3.1.0",
+         "vscode-textmate": "^9.3.2",
+@@ -2082,6 +2083,12 @@
+         "node": ">=22"
+       }
+     },
++    "node_modules/tslib": {
++      "version": "2.7.0",
++      "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.7.0.tgz",
++      "integrity": "sha512-gLXCKdN1/j47AiHiOkJN69hJmcbGTHI0ImLmbYLHykhgeN0jVGola9yVjFgzCUklsZQMW55o+dW7IXv3RCXDzA==",
++      "license": "0BSD"
++    },
+     "node_modules/tunnel-agent": {
+       "version": "0.6.0",
+       "resolved": "https://registry.npmjs.org/tunnel-agent/-/tunnel-agent-0.6.0.tgz",
+diff --git a/remote/package.json b/remote/package.json
+index 8ee0baa4..9afb9442 100644
+--- a/remote/package.json
++++ b/remote/package.json
+@@ -47,6 +47,7 @@
+     "ssh2": "^1.16.0",
+     "tar": "^7.5.20",
+     "tas-client": "0.4.6",
++    "tslib": "^2.6.3",
+     "vscode-oniguruma": "1.7.0",
+     "vscode-regexpp": "^3.1.0",
+     "vscode-textmate": "^9.3.2",

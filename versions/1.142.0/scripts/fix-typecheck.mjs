@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import path from 'node:path';
+const root = path.resolve(import.meta.dirname, '../work/20261002T104058121937812Z/vscode');
+const otel = path.join(root, 'src/vs/platform/agentHost/common/otel/agentHostOTelService.ts');
+const source = fs.readFileSync(otel, 'utf8');
+const fresh = source.replace(/^\tgetSdkTelemetryConfig:.*\n/m, '');
+if (source === fresh) throw new Error('Missing removed SDK method in null OTel service');
+fs.writeFileSync(otel, fresh);
+const mock = path.join(root, 'src/vs/platform/agentHost/test/node/mockAgent.ts');
+const before = fs.readFileSync(mock, 'utf8');
+const after = before.replace('createErrorResponsePart, isAhpChatChannel, parseChatUri,', 'createErrorResponsePart, isAhpChatChannel, isDefaultChatUri, parseChatUri,');
+if (before === after) throw new Error('Missing mock import anchor');
+fs.writeFileSync(mock, after);
+console.log('Removed obsolete null SDK telemetry method; restored shared mock URI helper import.');

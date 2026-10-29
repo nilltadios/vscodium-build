@@ -1,0 +1,7 @@
+{
+  "tag": "continuous",
+  "source": "https://api.github.com/repos/AppImage/appimagetool/releases/latest",
+  "fetched_at": "2026-09-29T05:22:30Z",
+  "url": "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage",
+  "digest": "sha256:a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0"
+}

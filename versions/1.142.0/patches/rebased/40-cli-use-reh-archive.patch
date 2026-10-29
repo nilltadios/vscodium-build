@@ -1,0 +1,402 @@
+diff --git a/cli/src/commands/serve_web.rs b/cli/src/commands/serve_web.rs
+index 29136642..0da6d426 100644
+--- a/cli/src/commands/serve_web.rs
++++ b/cli/src/commands/serve_web.rs
+@@ -812,7 +812,7 @@ impl ConnectionManager {
+ 		let release_for_fut = args.release.clone();
+ 		let log_for_fut = args.log.clone();
+ 		let dir_fut = cache.create(&args.release.commit, |target_dir| async move {
+-			info!(log_for_fut, "Downloading server {}", release_for_fut.commit);
++			info!(log_for_fut, "Downloading server {}/{}", release_for_fut.commit, release_for_fut.name);
+ 			let tmpdir = tempfile::tempdir().unwrap();
+ 			let response = update_service.get_download_stream(&release_for_fut).await?;
+ 
+@@ -840,7 +840,7 @@ impl ConnectionManager {
+ 
+ 		let executable = path
+ 			.join("bin")
+-			.join(args.release.quality.server_entrypoint());
++			.join(args.release.quality.server_entrypoint().unwrap());
+ 
+ 		let socket_path = get_socket_name();
+ 
+diff --git a/cli/src/constants.rs b/cli/src/constants.rs
+index eaaa908d..2d9e5849 100644
+--- a/cli/src/constants.rs
++++ b/cli/src/constants.rs
+@@ -40,7 +40,10 @@ pub const VSCODE_CLI_AI_ENDPOINT: Option<&'static str> = option_env!("VSCODE_CLI
+ pub const VSCODE_CLI_QUALITY: Option<&'static str> = option_env!("VSCODE_CLI_QUALITY");
+ pub const DOCUMENTATION_URL: Option<&'static str> = option_env!("VSCODE_CLI_DOCUMENTATION_URL");
+ pub const VSCODE_CLI_COMMIT: Option<&'static str> = option_env!("VSCODE_CLI_COMMIT");
+-pub const VSCODE_CLI_UPDATE_ENDPOINT: Option<&'static str> = option_env!("VSCODE_CLI_UPDATE_URL");
++pub const VSCODE_CLI_UPDATE_ENDPOINT: Option<&'static str> = option_env!("VSCODE_CLI_UPDATE_ENDPOINT");
++pub const VSCODE_CLI_DOWNLOAD_ENDPOINT: Option<&'static str> = option_env!("VSCODE_CLI_DOWNLOAD_ENDPOINT");
++pub const VSCODE_CLI_APP_NAME: Option<&'static str> = option_env!("VSCODE_CLI_APP_NAME");
++pub const VSCODE_CLI_BINARY_NAME: Option<&'static str> = option_env!("VSCODE_CLI_BINARY_NAME");
+ 
+ /// Windows lock name for the running tunnel service. Used by the setup script
+ /// to detect a tunnel process. See #179265.
+diff --git a/cli/src/options.rs b/cli/src/options.rs
+index 7d152c0e..c0f2fb2e 100644
+--- a/cli/src/options.rs
++++ b/cli/src/options.rs
+@@ -7,7 +7,7 @@ use std::fmt;
+ 
+ use serde::{Deserialize, Serialize};
+ 
+-use crate::constants::SERVER_NAME_MAP;
++use crate::{constants::VSCODE_CLI_BINARY_NAME, util::errors::CodeError};
+ 
+ #[derive(clap::ValueEnum, Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+ pub enum Quality {
+@@ -19,6 +19,10 @@ pub enum Quality {
+ 	Insiders,
+ }
+ 
++fn get_binary_name() -> Result<&'static str, CodeError> {
++	VSCODE_CLI_BINARY_NAME.ok_or_else(|| CodeError::UpdatesNotConfigured("no binary name"))
++}
++
+ impl Quality {
+ 	/// Lowercased quality name in paths and protocol
+ 	pub fn get_machine_name(&self) -> &'static str {
+@@ -39,19 +43,14 @@ impl Quality {
+ 	}
+ 
+ 	/// Server application name
+-	pub fn server_entrypoint(&self) -> String {
+-		let mut server_name = SERVER_NAME_MAP
+-			.as_ref()
+-			.and_then(|m| m.get(self))
+-			.map(|s| s.server_application_name.as_str())
+-			.unwrap_or("code-server-oss")
+-			.to_string();
++	pub fn server_entrypoint(&self) -> Result<String, CodeError> {
++		let mut server_name = get_binary_name()?.to_string();
+ 
+ 		if cfg!(windows) {
+ 			server_name.push_str(".cmd");
+ 		}
+ 
+-		server_name
++		Ok(server_name)
+ 	}
+ }
+ 
+diff --git a/cli/src/tunnels/agent_host.rs b/cli/src/tunnels/agent_host.rs
+index 69ebdc92..e23a2500 100644
+--- a/cli/src/tunnels/agent_host.rs
++++ b/cli/src/tunnels/agent_host.rs
+@@ -306,7 +306,7 @@ impl AgentHostManager {
+ 			server_dir
+ 				.join(SERVER_FOLDER_NAME)
+ 				.join("bin")
+-				.join(release.quality.server_entrypoint())
++				.join(release.quality.server_entrypoint().unwrap())
+ 		};
+ 
+ 		let agent_host_socket = get_socket_name();
+diff --git a/cli/src/tunnels/code_server.rs b/cli/src/tunnels/code_server.rs
+index 70491d26..89b73d98 100644
+--- a/cli/src/tunnels/code_server.rs
++++ b/cli/src/tunnels/code_server.rs
+@@ -504,7 +504,7 @@ impl<'a> ServerBuilder<'a> {
+ 					let output = capture_command_and_check_status(
+ 						server_dir
+ 							.join("bin")
+-							.join(self.server_params.release.quality.server_entrypoint()),
++							.join(self.server_params.release.quality.server_entrypoint().unwrap()),
+ 						&["--version"],
+ 					)
+ 					.await
+diff --git a/cli/src/tunnels/paths.rs b/cli/src/tunnels/paths.rs
+index 3d7d718a..98529bc6 100644
+--- a/cli/src/tunnels/paths.rs
++++ b/cli/src/tunnels/paths.rs
+@@ -98,7 +98,7 @@ impl InstalledServer {
+ 				server_dir
+ 					.join(SERVER_FOLDER_NAME)
+ 					.join("bin")
+-					.join(self.quality.server_entrypoint())
++					.join(self.quality.server_entrypoint().unwrap())
+ 			},
+ 			logfile: server_dir.join("log.txt"),
+ 			pidfile: server_dir.join("pid.txt"),
+diff --git a/cli/src/update_service.rs b/cli/src/update_service.rs
+index cd94139f..db064277 100644
+--- a/cli/src/update_service.rs
++++ b/cli/src/update_service.rs
+@@ -8,7 +8,7 @@ use std::{fmt, path::Path};
+ use serde::{Deserialize, Serialize};
+ 
+ use crate::{
+-	constants::VSCODE_CLI_UPDATE_ENDPOINT,
++	constants::{VSCODE_CLI_APP_NAME, VSCODE_CLI_DOWNLOAD_ENDPOINT, VSCODE_CLI_UPDATE_ENDPOINT},
+ 	log, options,
+ 	util::{
+ 		errors::{wrap, AnyError, CodeError, WrappedError},
+@@ -16,7 +16,7 @@ use crate::{
+ 		io::ReportCopyProgress,
+ 		tar::{self, has_gzip_header},
+ 		zipper,
+-	},
++	}
+ };
+ 
+ /// Implementation of the VS Code Update service for use in the CLI.
+@@ -56,6 +56,14 @@ fn quality_download_segment(quality: options::Quality) -> &'static str {
+ 	}
+ }
+ 
++fn get_app_name() -> Result<&'static str, CodeError> {
++	VSCODE_CLI_APP_NAME.ok_or_else(|| CodeError::UpdatesNotConfigured("no app name"))
++}
++
++fn get_download_endpoint() -> Result<&'static str, CodeError> {
++	VSCODE_CLI_DOWNLOAD_ENDPOINT.ok_or_else(|| CodeError::UpdatesNotConfigured("no download url"))
++}
++
+ fn get_update_endpoint() -> Result<String, CodeError> {
+ 	if let Ok(url) = std::env::var("VSCODE_CLI_UPDATE_URL") {
+ 		if !url.is_empty() {
+@@ -64,7 +72,7 @@ fn get_update_endpoint() -> Result<String, CodeError> {
+ 	}
+ 	VSCODE_CLI_UPDATE_ENDPOINT
+ 		.map(|s| s.to_string())
+-		.ok_or(CodeError::UpdatesNotConfigured("no service url"))
++		.ok_or(CodeError::UpdatesNotConfigured("no update url"))
+ }
+ 
+ impl UpdateService {
+@@ -72,23 +80,20 @@ impl UpdateService {
+ 		UpdateService { client: http, log }
+ 	}
+ 
+-	pub async fn get_release_by_semver_version(
++	/// Gets the latest commit for the target of the given quality.
++	pub async fn get_latest_commit(
+ 		&self,
+ 		platform: Platform,
+ 		target: TargetKind,
+ 		quality: options::Quality,
+-		version: &str,
+ 	) -> Result<Release, AnyError> {
+ 		let update_endpoint = get_update_endpoint()?;
+-		let download_segment = target
+-			.download_segment(platform)
+-			.ok_or_else(|| CodeError::UnsupportedPlatform(platform.to_string()))?;
+ 		let download_url = format!(
+-			"{}/api/versions/{}/{}/{}",
++			"{}/{}/{}/{}/latest.json",
+ 			&update_endpoint,
+-			version,
+-			download_segment,
+ 			quality_download_segment(quality),
++			platform.os(),
++			platform.arch(),
+ 		);
+ 
+ 		let mut response = self.client.make_request("GET", download_url).await?;
+@@ -98,7 +103,7 @@ impl UpdateService {
+ 		}
+ 
+ 		let res = response.json::<UpdateServerVersion>().await?;
+-		debug!(self.log, "Resolved version {} to {}", version, res.version);
++		debug!(self.log, "Resolved quality {} to {}", quality, res.version);
+ 
+ 		Ok(Release {
+ 			target,
+@@ -109,57 +114,26 @@ impl UpdateService {
+ 		})
+ 	}
+ 
+-	/// Gets the latest commit for the target of the given quality.
+-	pub async fn get_latest_commit(
+-		&self,
+-		platform: Platform,
+-		target: TargetKind,
+-		quality: options::Quality,
+-	) -> Result<Release, AnyError> {
+-		let update_endpoint = get_update_endpoint()?;
+-		let download_segment = target
+-			.download_segment(platform)
+-			.ok_or_else(|| CodeError::UnsupportedPlatform(platform.to_string()))?;
++	pub fn get_download_url(&self, release: &Release) -> Result<String, AnyError> {
++		let app_name = get_app_name()?;
++		let download_endpoint = get_download_endpoint()?;
++
+ 		let download_url = format!(
+-			"{}/api/latest/{}/{}",
+-			&update_endpoint,
+-			download_segment,
+-			quality_download_segment(quality),
++			"{}/download/{}/{}-reh-web-{}-{}-{}.tar.gz",
++			download_endpoint,
++			release.name,
++			app_name,
++			release.platform.os(),
++			release.platform.arch(),
++			release.name,
+ 		);
+ 
+-		let mut response = self.client.make_request("GET", download_url).await?;
+-
+-		if !response.status_code.is_success() {
+-			return Err(response.into_err().await.into());
+-		}
+-
+-		let res = response.json::<UpdateServerVersion>().await?;
+-		debug!(self.log, "Resolved quality {} to {}", quality, res.version);
+-
+-		Ok(Release {
+-			target,
+-			platform,
+-			quality,
+-			name: res.name,
+-			commit: res.version,
+-		})
++		Ok(download_url)
+ 	}
+ 
+ 	/// Gets the download stream for the release.
+ 	pub async fn get_download_stream(&self, release: &Release) -> Result<SimpleResponse, AnyError> {
+-		let update_endpoint = get_update_endpoint()?;
+-		let download_segment = release
+-			.target
+-			.download_segment(release.platform)
+-			.ok_or_else(|| CodeError::UnsupportedPlatform(release.platform.to_string()))?;
+-
+-		let download_url = format!(
+-			"{}/commit:{}/{}/{}",
+-			&update_endpoint,
+-			release.commit,
+-			download_segment,
+-			quality_download_segment(release.quality),
+-		);
++		let download_url = self.get_download_url(release)?;
+ 
+ 		let response = self.client.make_request("GET", download_url).await?;
+ 		if !response.status_code.is_success() {
+@@ -193,17 +167,6 @@ pub enum TargetKind {
+ 	Cli,
+ }
+ 
+-impl TargetKind {
+-	fn download_segment(&self, platform: Platform) -> Option<String> {
+-		match *self {
+-			TargetKind::Server => platform.headless(),
+-			TargetKind::Archive => platform.archive(),
+-			TargetKind::Web => platform.web(),
+-			TargetKind::Cli => Some(platform.cli()),
+-		}
+-	}
+-}
+-
+ #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+ pub enum Platform {
+ 	LinuxAlpineX64,
+@@ -222,62 +185,44 @@ pub enum Platform {
+ }
+ 
+ impl Platform {
+-	pub fn archive(&self) -> Option<String> {
++	pub fn arch(&self) -> String {
+ 		match self {
+-			Platform::LinuxX64 => Some("linux-x64".to_owned()),
+-			Platform::LinuxARM64 => Some("linux-arm64".to_owned()),
+-			Platform::LinuxARM32 => Some("linux-armhf".to_owned()),
+-			Platform::DarwinX64 => Some("darwin".to_owned()),
+-			Platform::DarwinARM64 => Some("darwin-arm64".to_owned()),
+-			Platform::WindowsX64 => Some("win32-x64-archive".to_owned()),
+-			Platform::WindowsX86 => Some("win32-archive".to_owned()),
+-			Platform::WindowsARM64 => Some("win32-arm64-archive".to_owned()),
+-			_ => None,
++			Platform::LinuxAlpineARM64 => "arm64",
++			Platform::LinuxAlpineX64 => "x64",
++			Platform::LinuxX64 => "x64",
++			Platform::LinuxX64Legacy => "x64",
++			Platform::LinuxARM64 => "arm64",
++			Platform::LinuxARM64Legacy => "arm64",
++			Platform::LinuxARM32 => "armhf",
++			Platform::LinuxARM32Legacy => "armhf",
++			Platform::DarwinX64 => "x64",
++			Platform::DarwinARM64 => "arm64",
++			Platform::WindowsX64 => "x64",
++			Platform::WindowsX86 => "ia42",
++			Platform::WindowsARM64 => "arm64",
+ 		}
+-	}
+-	pub fn headless(&self) -> Option<String> {
+-		let name = match self {
+-			Platform::LinuxAlpineARM64 => "server-alpine-arm64",
+-			Platform::LinuxAlpineX64 => "server-linux-alpine",
+-			Platform::LinuxX64 => "server-linux-x64",
+-			Platform::LinuxX64Legacy => "server-linux-legacy-x64",
+-			Platform::LinuxARM64 => "server-linux-arm64",
+-			Platform::LinuxARM64Legacy => "server-linux-legacy-arm64",
+-			// No remote server is built for arm32 since Node.js dropped
+-			// 32-bit Linux on armv7 in v24.
+-			Platform::LinuxARM32 | Platform::LinuxARM32Legacy => return None,
+-			Platform::DarwinX64 => "server-darwin",
+-			Platform::DarwinARM64 => "server-darwin-arm64",
+-			Platform::WindowsX64 => "server-win32-x64",
+-			Platform::WindowsX86 => "server-win32",
+-			Platform::WindowsARM64 => "server-win32-arm64",
+-		};
+-		Some(name.to_owned())
++		.to_owned()
+ 	}
+ 
+-	pub fn cli(&self) -> String {
++	pub fn os(&self) -> String {
+ 		match self {
+-			Platform::LinuxAlpineARM64 => "cli-alpine-arm64",
+-			Platform::LinuxAlpineX64 => "cli-alpine-x64",
+-			Platform::LinuxX64 => "cli-linux-x64",
+-			Platform::LinuxX64Legacy => "cli-linux-x64",
+-			Platform::LinuxARM64 => "cli-linux-arm64",
+-			Platform::LinuxARM64Legacy => "cli-linux-arm64",
+-			Platform::LinuxARM32 => "cli-linux-armhf",
+-			Platform::LinuxARM32Legacy => "cli-linux-armhf",
+-			Platform::DarwinX64 => "cli-darwin-x64",
+-			Platform::DarwinARM64 => "cli-darwin-arm64",
+-			Platform::WindowsARM64 => "cli-win32-arm64",
+-			Platform::WindowsX64 => "cli-win32-x64",
+-			Platform::WindowsX86 => "cli-win32",
++			Platform::LinuxAlpineARM64 => "alpine",
++			Platform::LinuxAlpineX64 => "alpine",
++			Platform::LinuxX64 => "linux",
++			Platform::LinuxX64Legacy => "linux",
++			Platform::LinuxARM64 => "linux",
++			Platform::LinuxARM64Legacy => "linux",
++			Platform::LinuxARM32 => "linux",
++			Platform::LinuxARM32Legacy => "linux",
++			Platform::DarwinX64 => "darwin",
++			Platform::DarwinARM64 => "darwin",
++			Platform::WindowsX64 => "win32",
++			Platform::WindowsX86 => "win32",
++			Platform::WindowsARM64 => "win32",
+ 		}
+ 		.to_owned()
+ 	}
+ 
+-	pub fn web(&self) -> Option<String> {
+-		self.headless().map(|h| format!("{h}-web"))
+-	}
+-
+ 	pub fn env_default() -> Option<Platform> {
+ 		if cfg!(all(
+ 			target_os = "linux",
+diff --git a/extensions/tunnel-forwarding/src/extension.ts b/extensions/tunnel-forwarding/src/extension.ts
+index 2f71999b..481b3505 100644
+--- a/extensions/tunnel-forwarding/src/extension.ts
++++ b/extensions/tunnel-forwarding/src/extension.ts
+@@ -35,7 +35,7 @@ if (process.env.VSCODE_FORWARDING_IS_DEV) {
+ 		binPath = '../../bin';
+ 	}
+ 
+-	const cliName = vscode.env.appQuality === 'stable' ? 'code-tunnel' : 'code-tunnel-insiders';
++	const cliName = 'codium-tunnel';
+ 	const extension = process.platform === 'win32' ? '.exe' : '';
+ 
+ 	cliPath = path.join(vscode.env.appRoot, binPath, cliName) + extension;

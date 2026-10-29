@@ -1,0 +1,152 @@
+name: Build AppImage
+
+# Builds the newest finished workspace (highest release_version in versions/*/config.json)
+# with that workspace's own scripts/build.sh, then publishes the AppImage, its .zsync and
+# its manifest as release v<release_version>. The AppImage embeds
+#   gh-releases-zsync|<owner>|<repo>|latest|VSCodium-local-*-x86_64.AppImage.zsync
+# so AppImageUpdate / Gear Lever can update it in place.
+#
+# Local flow: port + build + GUI-review as before, commit versions/<new>/ (the root
+# .gitignore keeps sources/work/cache/logs/dist out), push. A push that does not raise the
+# highest release_version is a no-op unless run by hand with "force".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "versions/*/config.json"
+      - "versions/*/patches/**"
+      - "versions/*/scripts/**"
+      - "versions/*/Containerfile"
+      - "versions/*/assets/**"
+      - ".github/workflows/build-appimage.yml"
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: "Workspace to build, e.g. versions/1.144.0-vscodium-ca7f7b4 (empty = newest)"
+        required: false
+        default: ""
+      force:
+        description: "Rebuild and replace the release even if it already exists"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-appimage
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # the local-host guards in fetch.sh/verify.sh (home-root inventory, installed editor) do not apply here
+      HOST_GUARDS: "0"
+      # rootless podman on hosted runners cannot set cgroup limits; the runner is the limit
+      PODMAN_LIMITS: ""
+      # upstream "continuous" assets move; the pinned files are mirrored in the build-tools release
+      APPIMAGE_TOOLS_MIRROR: https://github.com/${{ github.repository }}/releases/download/build-tools
+      APPIMAGE_UPDATE_INFO: gh-releases-zsync|${{ github.repository_owner }}|${{ github.event.repository.name }}|latest|VSCodium-local-*-x86_64.AppImage.zsync
+      # check-appimage.sh runs the AppImage; no FUSE needed this way
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+      INPUT_WORKSPACE: ${{ inputs.workspace }}
+      INPUT_FORCE: ${{ inputs.force }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick workspace
+        id: pick
+        run: |
+          set -euo pipefail
+          ws=${INPUT_WORKSPACE%/}
+          if [[ -z $ws ]]; then
+            ws=$(for f in versions/*/config.json; do
+                   printf '%s\t%s\n' "$(jq -r .release_version "$f")" "$(dirname "$f")"
+                 done | sort -V -k1,1 | tail -n 1 | cut -f2)
+          fi
+          [[ -f $ws/config.json && -f $ws/scripts/build.sh ]] || { echo "::error::$ws is not a workspace"; exit 1; }
+          version=$(jq -r .release_version "$ws/config.json")
+          tag="v$version"
+          skip=false
+          if gh release view "$tag" >/dev/null 2>&1 && [[ $INPUT_FORCE != true ]]; then
+            echo "::notice::Release $tag already exists; nothing to build (run manually with force to rebuild)."
+            skip=true
+          fi
+          {
+            echo "workspace=$ws"
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "skip=$skip"
+          } >> "$GITHUB_OUTPUT"
+          echo "Workspace $ws, release $tag, skip=$skip"
+
+      - name: Free disk space
+        if: steps.pick.outputs.skip != 'true'
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift
+          sudo docker image prune --all --force >/dev/null || true
+          df -h /
+
+      - uses: actions/setup-node@v4
+        if: steps.pick.outputs.skip != 'true'
+        with:
+          node-version: "24"
+
+      - name: Install host tools
+        if: steps.pick.outputs.skip != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ripgrep jq podman file binutils zsync
+          podman --version
+
+      - name: Build, check and package
+        if: steps.pick.outputs.skip != 'true'
+        run: bash "${{ steps.pick.outputs.workspace }}/scripts/build.sh"
+
+      - name: Publish release
+        if: steps.pick.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          ws=${{ steps.pick.outputs.workspace }}
+          tag=${{ steps.pick.outputs.tag }}
+          version=${{ steps.pick.outputs.version }}
+          app="$ws/dist/VSCodium-local-$version-x86_64.AppImage"
+          files=("$app" "$app.zsync" "$app.sha256" "$app.manifest.json")
+          for f in "${files[@]}"; do test -s "$f" || { echo "::error::missing $f"; exit 1; }; done
+          (cd "$(dirname "$app")" && sha256sum -c "$(basename "$app").sha256")
+          sha=$(cut -d' ' -f1 "$app.sha256")
+          {
+            echo "Unofficial Linux x64 VSCodium build \`$version\`, built by GitHub Actions from \`$ws\` at ${GITHUB_SHA::7}."
+            echo
+            echo "- VS Code: \`$(jq -r .vscode_version "$ws/sources.lock.json")\` (\`$(jq -r .vscode_commit "$ws/sources.lock.json")\`)"
+            echo "- VSCodium: \`$(jq -r .vscodium_commit "$ws/sources.lock.json")\`"
+            echo "- SHA-256: \`$sha\`"
+            echo
+            echo "Updatable in place: the AppImage carries zsync update information pointing at the latest release."
+            echo "Not an official or signed VSCodium release. Build logs: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > release-notes.md
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber
+            gh release edit "$tag" --notes-file release-notes.md --latest
+          else
+            gh release create "$tag" "${files[@]}" --title "VSCodium $version" \
+              --notes-file release-notes.md --target "$GITHUB_SHA" --latest
+          fi
+
+      - name: Keep logs
+        if: always() && steps.pick.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ steps.pick.outputs.version }}
+          path: |
+            ${{ steps.pick.outputs.workspace }}/logs/
+            ${{ steps.pick.outputs.workspace }}/evidence/timings.jsonl
+            ${{ steps.pick.outputs.workspace }}/TIMINGS.md
+          retention-days: 30
+          if-no-files-found: ignore

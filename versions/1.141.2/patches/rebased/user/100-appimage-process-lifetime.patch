@@ -1,0 +1,18 @@
+diff --git a/src/vs/code/node/cli.ts b/src/vs/code/node/cli.ts
+index 994f6c38..9ca13206 100644
+--- a/src/vs/code/node/cli.ts
++++ b/src/vs/code/node/cli.ts
+@@ -230,6 +230,13 @@ export async function main(argv: string[]): Promise<void> {
+ 
+ 		const processCallbacks: ((child: ChildProcess) => Promise<void>)[] = [];
+ 
++		// An AppImage must retain its mount while the detached editor uses it.
++		if (process.env['VSCODIUM_APPIMAGE_WAIT_FOR_EXIT'] === '1') {
++			processCallbacks.push(async child => {
++				await Event.toPromise(Event.fromNodeEventEmitter(child, 'exit'));
++			});
++		}
++
+ 		if (args.verbose) {
+ 			env['ELECTRON_ENABLE_LOGGING'] = '1';
+ 		}

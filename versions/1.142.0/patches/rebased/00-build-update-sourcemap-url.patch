@@ -1,0 +1,80 @@
+diff --git a/build/gulpfile.extensions.ts b/build/gulpfile.extensions.ts
+index bc1f9fba..3e4a099d 100644
+--- a/build/gulpfile.extensions.ts
++++ b/build/gulpfile.extensions.ts
+@@ -98,7 +98,7 @@ const compilations = [
+ 	'.vscode/extensions/vscode-pr-pinger/tsconfig.json',
+ ];
+ 
+-const getBaseUrl = (out: string) => `https://main.vscode-cdn.net/sourcemaps/${commit}/${out}`;
++const getBaseUrl = (out: string) => `https://github.com/VSCodium/sourcemaps/releases/download/${product.quality}-${commit}/extensions-${out.replaceAll('/', '-')}`;
+ 
+ function rewriteTsgoSourceMappingUrlsIfNeeded(build: boolean, out: string, baseUrl: string): Promise<void> {
+ 	if (!build) {
+diff --git a/build/gulpfile.reh.ts b/build/gulpfile.reh.ts
+index b1075fa4..1387e8e8 100644
+--- a/build/gulpfile.reh.ts
++++ b/build/gulpfile.reh.ts
+@@ -533,7 +533,7 @@ function prepareCopilotRipgrepShimTaskREH(platform: string, arch: string, destin
+ ['reh', 'reh-web'].forEach(type => {
+ 	const target = type === 'reh' ? 'server' : 'server-web';
+ 	const esbuildBundleTask = task.define(`esbuild-vscode-${type}`, () => runEsbuildBundle(`out-vscode-${type}`, false, true, target));
+-	const esbuildBundleMinTask = task.define(`esbuild-vscode-${type}-min`, () => runEsbuildBundle(`out-vscode-${type}-min`, true, true, target, `https://main.vscode-cdn.net/sourcemaps/${commit}/core`));
++	const esbuildBundleMinTask = task.define(`esbuild-vscode-${type}-min`, () => runEsbuildBundle(`out-vscode-${type}-min`, true, true, target, `https://github.com/VSCodium/sourcemaps/releases/download/${product.quality}-${commit}/core`));
+ 
+ 	BUILD_TARGETS.forEach(buildTarget => {
+ 		const dashed = (str: string) => (str ? `-${str}` : ``);
+diff --git a/build/gulpfile.vscode.ts b/build/gulpfile.vscode.ts
+index 92878b10..6eab1989 100644
+--- a/build/gulpfile.vscode.ts
++++ b/build/gulpfile.vscode.ts
+@@ -59,7 +59,7 @@ function getLockedPackageVersion(packageName: string): string {
+ 	return version;
+ }
+ 
+-const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
++const sourceMappingURLBase = `https://github.com/VSCodium/sourcemaps/releases/download/${product.quality}-${commit}`;
+ const isCI = !!process.env['CI'] || !!process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'] || !!process.env['GITHUB_WORKSPACE'];
+ const useCdnSourceMapsForPackagingTasks = isCI;
+ const stripSourceMapsInPackagingTasks = isCI;
+diff --git a/build/gulpfile.vscode.web.ts b/build/gulpfile.vscode.web.ts
+index 6afedb64..9b68bf0a 100644
+--- a/build/gulpfile.vscode.web.ts
++++ b/build/gulpfile.vscode.web.ts
+@@ -26,7 +26,7 @@ const commit = getVersion(REPO_ROOT);
+ const quality = (product as { quality?: string }).quality;
+ const version = (quality && quality !== 'stable') ? `${packageJson.version}-${quality}` : packageJson.version;
+ 
+-const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
++const sourceMappingURLBase = `https://github.com/VSCodium/sourcemaps/releases/download/${product.quality}-${commit}`;
+ const esbuildBundleVSCodeWebTask = task.define('esbuild-vscode-web', () => runEsbuildBundle('out-vscode-web', false, true, 'web'));
+ const esbuildBundleVSCodeWebMinTask = task.define('esbuild-vscode-web-min', () => runEsbuildBundle('out-vscode-web-min', true, true, 'web', `${sourceMappingURLBase}/core`));
+ 
+diff --git a/build/lib/extensions.ts b/build/lib/extensions.ts
+index 10bd9fbd..d6494c55 100644
+--- a/build/lib/extensions.ts
++++ b/build/lib/extensions.ts
+@@ -27,8 +27,6 @@ import { createRequire } from 'module';
+ const require = createRequire(import.meta.url);
+ 
+ const root = path.dirname(path.dirname(import.meta.dirname));
+-// const commit = getVersion(root);
+-// const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
+ 
+ function minifyExtensionResources(input: Stream): Stream {
+ 	const jsonFilter = filter(['**/*.json', '**/*.code-snippets'], { restore: true });
+diff --git a/build/lib/util.ts b/build/lib/util.ts
+index 82135b31..58385d41 100644
+--- a/build/lib/util.ts
++++ b/build/lib/util.ts
+@@ -284,8 +284,8 @@ export function rewriteSourceMappingURL(sourceMappingURLBase: string): NodeJS.Re
+ 	const output = input
+ 		.pipe(es.mapSync<VinylFile, VinylFile>(f => {
+ 			const contents = (f.contents as Buffer).toString('utf8');
+-			const str = `//# sourceMappingURL=${sourceMappingURLBase}/${path.dirname(f.relative).replace(/\\/g, '/')}/$1`;
+-			f.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, str));
++			const fp = path.dirname(f.relative).replace(/\\/g, '/').replaceAll('/', '-');
++			f.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, (_m, p) => `//# sourceMappingURL=${sourceMappingURLBase}/${fp}-${p.replaceAll('/', '-')}`));
+ 			return f;
+ 		}));
+ 

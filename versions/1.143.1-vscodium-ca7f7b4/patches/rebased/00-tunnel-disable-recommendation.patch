@@ -1,0 +1,14 @@
+diff --git a/src/vs/workbench/contrib/remoteTunnel/electron-browser/remoteTunnel.contribution.ts b/src/vs/workbench/contrib/remoteTunnel/electron-browser/remoteTunnel.contribution.ts
+index 1310d16c..19928556 100644
+--- a/src/vs/workbench/contrib/remoteTunnel/electron-browser/remoteTunnel.contribution.ts
++++ b/src/vs/workbench/contrib/remoteTunnel/electron-browser/remoteTunnel.contribution.ts
+@@ -196,6 +196,9 @@ export class RemoteTunnelWorkbenchContribution extends Disposable implements IWo
+ 
+ 		const remoteExtension = this.serverConfiguration.extension;
+ 		const shouldRecommend = async () => {
++			if (!Boolean(remoteExtension)) {
++				return false;
++			}
+ 			if (this.storageService.getBoolean(REMOTE_TUNNEL_EXTENSION_RECOMMENDED_KEY, StorageScope.APPLICATION)) {
+ 				return false;
+ 			}
