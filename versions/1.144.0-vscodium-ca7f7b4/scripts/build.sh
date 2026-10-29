@@ -5,7 +5,9 @@ cd "$project"
 mkdir -p cache/home cache/npm cache/electron cache/xdg cache/ccache logs evidence dist
 timed() { bash "$project/scripts/timed.sh" "$@"; }
 timed fetch bash scripts/fetch.sh
-timed patch-integrity sha256sum -c evidence/port-patches.sha256
+# The list records absolute paths from the machine that ported; check the same files
+# relative to this checkout (a CI runner or a moved project has a different root).
+timed patch-integrity bash -c 'sed -E "s#^([0-9a-f]{64}) [ *]/.*/(patches/)#\1  \2#" evidence/port-patches.sha256 | sha256sum -c -'
 timed prepare-work bash scripts/prepare-work.sh
 node_version=$(tr -d '\n' < sources/vscode/.nvmrc)
 image=localhost/vscodium-build:node-$node_version
