@@ -28,3 +28,22 @@ for (let more = true; more;) {
     if (missingImport(file)) { fs.unlinkSync(file); console.log(path.relative(root, file)); more = true; }
   }
 }
+// Anywhere in src/vs: test and fixture files that import a missing module under a test/ directory. VSCodium's
+// removal JSON deletes whole test-helper trees (platform/agentHost/test, componentFixtures/chat); new upstream
+// tests built on them go too (1.145.0: automationDialog.fixture, remoteAgentHostSessionsProvider.test,
+// agentHostPty.test). Only test-only files are removed, and only for test-only imports, so a missing product
+// module still fails the typecheck.
+const testOnly = /\/test\/.*\.(?:test|fixture)\.ts$/;
+const missingTestImport = f => {
+  const text = fs.readFileSync(f, 'utf8');
+  return !/^<<<<<<< /m.test(text) && [...text.matchAll(/^import [^;]*?from ['"](\.[^'"]+)\.js['"]/gm)].some(m => {
+    const target = path.resolve(path.dirname(f), m[1]);
+    return /\/test\//.test(path.relative(root, target)) && !fs.existsSync(target + '.ts') && !fs.existsSync(target + '.js');
+  });
+};
+for (let more = true; more;) {
+  more = false;
+  for (const file of walk(path.join(root, 'src/vs')).filter(f => testOnly.test(f))) {
+    if (missingTestImport(file)) { fs.unlinkSync(file); console.log(path.relative(root, file)); more = true; }
+  }
+}

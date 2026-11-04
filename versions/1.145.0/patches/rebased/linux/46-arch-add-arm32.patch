@@ -1,0 +1,12 @@
+diff --git a/build/gulpfile.reh.ts b/build/gulpfile.reh.ts
+index 1998011d..d7bef5c8 100644
+--- a/build/gulpfile.reh.ts
++++ b/build/gulpfile.reh.ts
+@@ -50,6 +50,7 @@ const BUILD_TARGETS = [
+ 	{ platform: 'darwin', arch: 'arm64' },
+ 	{ platform: 'linux', arch: 'x64' },
+ 	{ platform: 'linux', arch: 'arm64' },
++	{ platform: 'linux', arch: 'armhf' },
+ 	{ platform: 'linux', arch: 'ppc64le' },
+ 	{ platform: 'linux', arch: 'riscv64' },
+ 	{ platform: 'linux', arch: 'loong64' },
