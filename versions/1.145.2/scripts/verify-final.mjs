@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+const project = path.resolve(import.meta.dirname, '..');
+const read = relative => fs.readFileSync(path.join(project, relative), 'utf8');
+const hash = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const artifact = read('evidence/latest-appimage.txt').trim();
+const manifest = JSON.parse(fs.readFileSync(artifact + '.manifest.json', 'utf8'));
+const config = JSON.parse(read('config.json'));
+const lock = JSON.parse(read('sources.lock.json'));
+assert.equal(manifest.config.vscode_version, config.vscode_version);
+assert.equal(manifest.config.release_version, config.release_version);
+assert.equal(manifest.sources.vscode_commit, lock.vscode_commit);
+assert.equal(manifest.artifact.sha256, hash(artifact));
+assert.equal(manifest.patchManifestSha256, hash(path.join(project, 'evidence/port-patches.sha256')));
+assert.equal(manifest.rootNpmLockSha256, hash(path.join(manifest.workDirectory, 'vscode/package-lock.json')));
+assert.equal(manifest.appRunSha256, hash(path.join(project, 'scripts/AppRun')));
+const stages = read('evidence/timings.jsonl').trim().split('\n').map(line => JSON.parse(line));
+for (const name of ['editor-build', 'telemetry-defaults', 'typecheck', 'artifact-check', 'appimage-check', 'manifest', 'project-check', 'gui-smoke']) {
+  const latest = stages.findLast(stage => stage.stage === name);
+  assert(latest, `Missing stage: ${name}`);
+  assert.equal(latest.exit_code, 0, `Failed stage: ${name}`);
+}
+console.log(JSON.stringify({ manifestChecked: true, version: manifest.config.release_version, artifact, sha256: manifest.artifact.sha256, stageCount: stages.length }, null, 2));
+const gui = read('evidence/latest-gui.txt').trim();
+const cleanup = fs.readFileSync(path.join(gui, 'cleanup.txt'), 'utf8');
+assert(cleanup.includes('Remaining isolated profile processes: 0'));
+assert(cleanup.includes('PASS: isolated test mounts removed.'));
+assert.equal(Number(fs.readFileSync(path.join(gui, 'launch-exit.txt'), 'utf8')), 0);
+const visual = JSON.parse(fs.readFileSync(path.join(gui, 'visual-review.json'), 'utf8'));
+assert.equal(visual.passed, true);
+assert.equal(visual.screenshotSha256, hash(path.join(gui, 'screen.png')));
+console.log('PASS: artifact/source/patch provenance matches; GUI was visually reviewed; isolated test process and mount cleanup passed.');

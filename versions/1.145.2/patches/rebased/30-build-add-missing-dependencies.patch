@@ -1,0 +1,26 @@
+diff --git a/build/package-lock.json b/build/package-lock.json
+index 469fbaad..bc6f293a 100644
+--- a/build/package-lock.json
++++ b/build/package-lock.json
+@@ -4795,8 +4795,8 @@
+       "version": "4.8.4",
+       "resolved": "https://registry.npmjs.org/node-gyp-build/-/node-gyp-build-4.8.4.tgz",
+       "integrity": "sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==",
+-      "devOptional": true,
+       "license": "MIT",
++      "optional": true,
+       "bin": {
+         "node-gyp-build": "bin.js",
+         "node-gyp-build-optional": "optional.js",
+diff --git a/build/package.json b/build/package.json
+index c78cd1d2..1605a490 100644
+--- a/build/package.json
++++ b/build/package.json
+@@ -71,6 +71,7 @@
+     "test": "node --test '{lib,next,agent-sdk,codex}/**/*.test.ts' '../.eslint-plugin-local/tests/*.test.ts'"
+   },
+   "optionalDependencies": {
++    "tree-sitter": "^0.22.4",
+     "tree-sitter-typescript": "^0.23.2",
+     "vscode-gulp-watch": "^5.0.3"
+   },

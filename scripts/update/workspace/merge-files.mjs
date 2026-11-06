@@ -16,4 +16,5 @@ for (const line of input.split('\n')) {
   const file = unresolved ?? missing;
   if (file && !/(^|\/)package(-lock)?\.json$/.test(file)) files.add(file);
 }
-console.log([...files].join('\n'));
+// No output at all when nothing is left: a blank line would reach merge-from.sh as a file named "".
+if (files.size) console.log([...files].join('\n'));
