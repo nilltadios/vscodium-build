@@ -70,7 +70,11 @@ replay can find it.
 | `workspace/port.sh` | the rerunnable port pipeline and report |
 | `workspace/port-lib.mjs`, `port-rules.mjs` | finalize helpers; recurring resolutions (agent SDKs, policy-watcher fork + test factory, os-proxy-resolver globs, agent-host OTel removal) |
 | `workspace/merge-files.mjs`, `merge-from.sh`, `replay-port.sh`, `port-rejects.mjs`, `prune-providers.mjs` | rebase leftovers → three-way merge against the previous patched tree; prune also removes provider modules and tests that import an already-removed module |
-| `workspace/port-deps.sh` | `npm ci --ignore-scripts` of the new lockfile in the builder, cached by lockfile hash |
+| `workspace/port-deps.sh` | `pnpm install --frozen-lockfile --ignore-scripts` of the root project (VS Code 1.146+; `npm ci` before), cached by input hash |
+| `workspace/refresh-locks.sh` | re-resolves `pnpm-lock.yaml` of the root, `build`, `remote`, `extensions` (or the npm locks before 1.146) |
+| `workspace/image-tag.sh` | builder tag `node-<v>[-pnpm-<v>]`; stops when `package.json` pins a pnpm the `Containerfile` does not |
+| `workspace/vscodium-pnpm.mjs` | rewrites the work copies of VSCodium's `build.sh`/`prepare_vscode.sh` from npm to pnpm; fails if a line it expects is gone |
+| `workspace/prepare-work.sh` | work tree from sources; drops VSCodium removal paths upstream already deleted (`evidence/absent-removals.txt`) |
 | `workspace/export-port.sh`, `tree-check.sh`, `port-report.mjs` | export, reproduce check, report |
 | `workspace/test-gui.sh`, `release.sh`, `write-status.mjs` | GUI smoke that polls up to 30 s; one-shot release; version-agnostic STATUS.md |
 | `finalize/finalize-port-<v>.mjs` | per-version conflict picks, kept for replays |

@@ -50,6 +50,25 @@ if (!policyFork) {
 rule('os-proxy-resolver-fork', 'build/darwin/create-universal-app.ts', s =>
   s.replaceAll('@vscode/os-proxy-resolver-darwin-', '@vscodium/os-proxy-resolver-darwin-'));
 
+// VS Code 1.146 (pnpm): install-script approvals moved to pnpm-workspace.yaml `allowBuilds`, keyed by exact
+// name@version, and strictDepBuilds fails the install for an unlisted package. VSCodium's patches swap deps
+// to @vscodium/* forks in package.json only, so move the upstream entry to the fork VSCodium pins.
+for (const dir of ['', 'build', 'remote', 'extensions']) {
+  const pkgFile = path.join(root, dir, 'package.json');
+  if (!fs.existsSync(path.join(root, dir, 'pnpm-workspace.yaml')) || !fs.existsSync(pkgFile)) continue;
+  const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
+  const forks = Object.entries({ ...pkg.dependencies, ...pkg.devDependencies, ...pkg.optionalDependencies })
+    .filter(([name]) => name.startsWith('@vscodium/'))
+    .map(([name, spec]) => [name.slice('@vscodium/'.length), name, spec.replace(/^[\^~]/, '')]);
+  rule('fork-allow-builds', path.join(dir, 'pnpm-workspace.yaml'), s => {
+    for (const [base, fork, version] of forks) {
+      s = s.replace(new RegExp(`^(\\s+)'?(?:@vscode/)?${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}@[^:']+'?: (true|false)$`, 'm'),
+        `$1'${fork}@${version}': $2`);
+    }
+    return s;
+  });
+}
+
 // Agent-host OTel service: removed with the Copilot SDK (its module imports @github/copilot-sdk), so a finalize can
 // pick upstream's side and this strips what refers to it (hand-written in 1.142.0 and 1.143.1). Anything it does
 // not cover still fails the typecheck. Lines are dropped only when they mention the service itself.

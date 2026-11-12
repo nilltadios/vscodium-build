@@ -1,0 +1,60 @@
+diff --git a/build/.moduleignore b/build/.moduleignore
+index 51149993..f39ddd3a 100644
+--- a/build/.moduleignore
++++ b/build/.moduleignore
+@@ -84,11 +84,11 @@ native-is-elevated/deps/**
+ @vscode/native-watchdog/src/**
+ !@vscode/native-watchdog/build/Release/*.node
+ 
+-@vscode/vsce-sign/**
+-!@vscode/vsce-sign/src/main.d.ts
+-!@vscode/vsce-sign/src/main.js
+-!@vscode/vsce-sign/package.json
+-!@vscode/vsce-sign/bin/**
++@vscodium/vsce-sign/**
++!@vscodium/vsce-sign/src/main.d.ts
++!@vscodium/vsce-sign/src/main.js
++!@vscodium/vsce-sign/package.json
++!@vscodium/vsce-sign/bin/**
+ 
+ windows-foreground-love/binding.gyp
+ windows-foreground-love/build/**
+diff --git a/build/gulpfile.vscode.ts b/build/gulpfile.vscode.ts
+index b002478a..8e97e208 100644
+--- a/build/gulpfile.vscode.ts
++++ b/build/gulpfile.vscode.ts
+@@ -285,7 +285,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
+ 				// and node-pty blocks the pty host on `ConnectNamedPipe`.
+ 				'**/node-pty/package.json',
+ 				'**/*.wasm',
+-				'**/@vscode/vsce-sign/bin/*',
++				'**/@vscodium/vsce-sign/bin/*',
+ 			], [
+ 				'**/*.mk',
+ 			], [
+diff --git a/build/lib/extensions.ts b/build/lib/extensions.ts
+index 21be8fa6..a2f084ad 100644
+--- a/build/lib/extensions.ts
++++ b/build/lib/extensions.ts
+@@ -177,7 +177,7 @@ function fromLocalNormal(extensionPath: string): Stream {
+ }
+ 
+ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string): Stream {
+-	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
++	const vsce = require('@vscodium/vsce') as typeof import('@vscodium/vsce');
+ 	const result = es.through();
+ 	const extensionName = path.basename(extensionPath);
+ 
+diff --git a/src/vs/platform/extensionManagement/node/extensionSignatureVerificationService.ts b/src/vs/platform/extensionManagement/node/extensionSignatureVerificationService.ts
+index 98535c5e..cc37d7b4 100644
+--- a/src/vs/platform/extensionManagement/node/extensionSignatureVerificationService.ts
++++ b/src/vs/platform/extensionManagement/node/extensionSignatureVerificationService.ts
+@@ -67,7 +67,7 @@ export class ExtensionSignatureVerificationService implements IExtensionSignatur
+ 	}
+ 
+ 	private async resolveVsceSign(): Promise<typeof vsceSign> {
+-		const mod = '@vscode/vsce-sign';
++		const mod = '@vscodium/vsce-sign';
+ 		return import(mod);
+ 	}
+ 

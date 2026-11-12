@@ -150,8 +150,10 @@ if [[ $image_node != "$node_version" ]]; then
   printf 'STOP: %s needs Node %s but Containerfile pins node:%s. Update BASE_IMAGE (tag and digest) first.\n' "$next" "$node_version" "$image_node" >&2
   exit 3
 fi
-if ! podman image exists "localhost/vscodium-build:node-$node_version"; then
-  bash scripts/timed.sh container-image podman build -t "localhost/vscodium-build:node-$node_version" -f Containerfile .
+# Tag: node-<v>[-pnpm-<v>]; image-tag.sh stops (exit 3) when package.json pins a pnpm the Containerfile lacks.
+image=$(bash scripts/image-tag.sh) || exit 3
+if ! podman image exists "$image"; then
+  bash scripts/timed.sh container-image podman build -t "$image" -f Containerfile .
 fi
 if [[ $run_port -eq 1 ]]; then
   bash scripts/timed.sh port bash scripts/port.sh

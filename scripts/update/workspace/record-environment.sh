@@ -19,7 +19,7 @@ podman --version
 printf '\nContainer toolchain\n'
 podman run --rm --userns=keep-id \
   --security-opt=no-new-privileges --cap-drop=all \
-  "localhost/vscodium-build:node-$(tr -d '\n' < "$project/sources/vscode/.nvmrc")" \
-  bash -c 'node --version; npm --version; cc --version; ccache --version'
+  "$(bash "$project/scripts/image-tag.sh")" \
+  bash -c 'node --version; npm --version; pnpm --version 2>/dev/null || true; cc --version; ccache --version'
 printf '\nBuilder image ID\n'
-podman image inspect "localhost/vscodium-build:node-$(tr -d '\n' < "$project/sources/vscode/.nvmrc")" --format '{{.Id}}'
+podman image inspect "$(bash "$project/scripts/image-tag.sh")" --format '{{.Id}}'

@@ -1,0 +1,18 @@
+diff --git a/src/vs/workbench/contrib/extensions/browser/extensions.contribution.ts b/src/vs/workbench/contrib/extensions/browser/extensions.contribution.ts
+index 1d04e220..7871d26b 100644
+--- a/src/vs/workbench/contrib/extensions/browser/extensions.contribution.ts
++++ b/src/vs/workbench/contrib/extensions/browser/extensions.contribution.ts
+@@ -393,6 +393,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
+ 				scope: ConfigurationScope.APPLICATION,
+ 				tags: ['advanced', 'usesOnlineServices']
+ 			},
++			'extensions.excludeUnsafes': {
++				scope: ConfigurationScope.MACHINE,
++				type: 'boolean',
++				default: true,
++				description: localize('extensionsExcludeUnsafes', "When enabled, it will download and cache the list of malicious and deprecated extensions. It's recommended to leave it enabled."),
++				tags: ['usesOnlineServices']
++			},
+ 		}
+ 	});
+ 

@@ -1,0 +1,287 @@
+diff --git a/build/.moduleignore b/build/.moduleignore
+index 210ed7b6..0568be74 100644
+--- a/build/.moduleignore
++++ b/build/.moduleignore
+@@ -247,16 +247,19 @@ zone.js/dist/**
+ @github/copilot-sdk-win32-arm64/**
+ @github/copilot-sdk-win32-x64/**
+ 
+-# @vscode/os-proxy-resolver platform binaries - selected target is re-added during packaging
+-@vscode/os-proxy-resolver-darwin-arm64/**
+-@vscode/os-proxy-resolver-darwin-x64/**
+-@vscode/os-proxy-resolver-linux-arm-gnueabihf/**
+-@vscode/os-proxy-resolver-linux-arm64-gnu/**
+-@vscode/os-proxy-resolver-linux-arm64-musl/**
+-@vscode/os-proxy-resolver-linux-x64-gnu/**
+-@vscode/os-proxy-resolver-linux-x64-musl/**
+-@vscode/os-proxy-resolver-win32-arm64-msvc/**
+-@vscode/os-proxy-resolver-win32-x64-msvc/**
++# @vscodium/os-proxy-resolver platform binaries - selected target is re-added during packaging
++@vscodium/os-proxy-resolver-darwin-arm64/**
++@vscodium/os-proxy-resolver-darwin-x64/**
++@vscodium/os-proxy-resolver-linux-arm-gnueabihf/**
++@vscodium/os-proxy-resolver-linux-arm64-gnu/**
++@vscodium/os-proxy-resolver-linux-arm64-musl/**
++@vscodium/os-proxy-resolver-linux-loong64-gnu/**
++@vscodium/os-proxy-resolver-linux-ppc64le-gnu/**
++@vscodium/os-proxy-resolver-linux-riscv64-gnu/**
++@vscodium/os-proxy-resolver-linux-x64-gnu/**
++@vscodium/os-proxy-resolver-linux-x64-musl/**
++@vscodium/os-proxy-resolver-win32-arm64-msvc/**
++@vscodium/os-proxy-resolver-win32-x64-msvc/**
+ 
+ # Do not allow an SDK canary to restore the standalone CLI transitively.
+ @github/copilot-sdk/node_modules/@github/copilot/**
+diff --git a/build/darwin/create-universal-app.ts b/build/darwin/create-universal-app.ts
+index 9a312a27..84bc3a57 100644
+--- a/build/darwin/create-universal-app.ts
++++ b/build/darwin/create-universal-app.ts
+@@ -62,8 +62,8 @@ async function main(buildDir?: string) {
+ 			crossCopyPlatformDir(x64AppPath, arm64AppPath, path.join(base, '@github', `copilot-${plat}`));
+ 			// @github/copilot-sdk-{platform} packages
+ 			crossCopyPlatformDir(x64AppPath, arm64AppPath, path.join(base, '@github', `copilot-sdk-${plat}`));
+-			// @vscode/os-proxy-resolver-{platform} packages
+-			crossCopyPlatformDir(x64AppPath, arm64AppPath, path.join(base, '@vscode', `os-proxy-resolver-${plat}`));
++			// @vscodium/os-proxy-resolver-{platform} packages
++			crossCopyPlatformDir(x64AppPath, arm64AppPath, path.join(base, '@vscodium', `os-proxy-resolver-${plat}`));
+ 			// @github/copilot/prebuilds/{platform} (pty.node, spawn-helper)
+ 			crossCopyPlatformDir(x64AppPath, arm64AppPath, path.join(base, '@github', 'copilot', 'prebuilds', plat));
+ 			// @github/copilot/tgrep/bin/{platform} (tgrep binary)
+@@ -97,10 +97,10 @@ async function main(buildDir?: string) {
+ 		'**/node_modules/@github/copilot-sdk-darwin-arm64/**',
+ 		'**/node_modules.asar.unpacked/@github/copilot-sdk-darwin-x64/**',
+ 		'**/node_modules.asar.unpacked/@github/copilot-sdk-darwin-arm64/**',
+-		'**/node_modules/@vscode/os-proxy-resolver-darwin-x64/**',
+-		'**/node_modules/@vscode/os-proxy-resolver-darwin-arm64/**',
+-		'**/node_modules.asar.unpacked/@vscode/os-proxy-resolver-darwin-x64/**',
+-		'**/node_modules.asar.unpacked/@vscode/os-proxy-resolver-darwin-arm64/**',
++		'**/node_modules/@vscodium/os-proxy-resolver-darwin-x64/**',
++		'**/node_modules/@vscodium/os-proxy-resolver-darwin-arm64/**',
++		'**/node_modules.asar.unpacked/@vscodium/os-proxy-resolver-darwin-x64/**',
++		'**/node_modules.asar.unpacked/@vscodium/os-proxy-resolver-darwin-arm64/**',
+ 		'**/node_modules/@github/copilot/prebuilds/darwin-x64/**',
+ 		'**/node_modules/@github/copilot/prebuilds/darwin-arm64/**',
+ 		'**/node_modules.asar.unpacked/@github/copilot/prebuilds/darwin-x64/**',
+@@ -136,8 +136,8 @@ async function main(buildDir?: string) {
+ 		// them as arch-unique. Paths here are ASAR-internal (top level, no `node_modules`
+ 		// prefix). Over-covering is harmless: the allowlist is only consulted for files
+ 		// that are actually unique to one arch.
+-		singleArchFiles: '{**/@github/copilot-darwin-*,**/@github/copilot-darwin-*/**,**/@github/copilot-sdk-darwin-*,**/@github/copilot-sdk-darwin-*/**,**/@github/copilot/prebuilds/darwin-*,**/@github/copilot/prebuilds/darwin-*/**,**/@github/copilot/tgrep/bin/darwin-*,**/@github/copilot/tgrep/bin/darwin-*/**,**/@github/copilot/sdk/tgrep/bin/darwin-*,**/@github/copilot/sdk/tgrep/bin/darwin-*/**,**/@github/copilot/sdk/prebuilds/darwin-*,**/@github/copilot/sdk/prebuilds/darwin-*/**,**/@github/copilot/sdk/ripgrep/bin/darwin-*,**/@github/copilot/sdk/ripgrep/bin/darwin-*/**,**/@vscode/ripgrep-universal/bin/darwin-*,**/@vscode/ripgrep-universal/bin/darwin-*/**,**/@vscode/os-proxy-resolver-darwin-*,**/@vscode/os-proxy-resolver-darwin-*/**,**/foundry-local-sdk/prebuilds,**/foundry-local-sdk/prebuilds/darwin-arm64,**/foundry-local-sdk/prebuilds/darwin-arm64/**}',
+-		x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node,**/node_modules/@github/copilot-darwin-*/**,**/node_modules/@github/copilot-sdk-darwin-*/**,**/node_modules/@github/copilot/prebuilds/darwin-*/*,**/node_modules/@github/copilot/tgrep/bin/darwin-*/*,**/node_modules/@github/copilot/sdk/tgrep/bin/darwin-*/*,**/node_modules.asar.unpacked/@github/copilot-darwin-*/**,**/node_modules.asar.unpacked/@github/copilot-sdk-darwin-*/**,**/node_modules.asar.unpacked/@github/copilot/prebuilds/darwin-*/*,**/node_modules.asar.unpacked/@github/copilot/tgrep/bin/darwin-*/*,**/node_modules.asar.unpacked/@github/copilot/sdk/tgrep/bin/darwin-*/*,**/extensions/copilot/node_modules/@github/copilot/sdk/prebuilds/darwin-*/*,**/extensions/copilot/node_modules/@github/copilot/sdk/ripgrep/bin/darwin-*/*,**/extensions/copilot/node_modules/@github/copilot/sdk/tgrep/bin/darwin-*/*,**/extensions/copilot/node_modules/@github/copilot/tgrep/bin/darwin-*/*,**/node_modules/@vscode/ripgrep-universal/bin/darwin-*/*,**/node_modules.asar.unpacked/@vscode/ripgrep-universal/bin/darwin-*/*,**/node_modules/@vscode/os-proxy-resolver-darwin-*/**,**/node_modules.asar.unpacked/@vscode/os-proxy-resolver-darwin-*/**}',
++		singleArchFiles: '{**/@github/copilot-darwin-*,**/@github/copilot-darwin-*/**,**/@github/copilot-sdk-darwin-*,**/@github/copilot-sdk-darwin-*/**,**/@github/copilot/prebuilds/darwin-*,**/@github/copilot/prebuilds/darwin-*/**,**/@github/copilot/tgrep/bin/darwin-*,**/@github/copilot/tgrep/bin/darwin-*/**,**/@github/copilot/sdk/tgrep/bin/darwin-*,**/@github/copilot/sdk/tgrep/bin/darwin-*/**,**/@github/copilot/sdk/prebuilds/darwin-*,**/@github/copilot/sdk/prebuilds/darwin-*/**,**/@github/copilot/sdk/ripgrep/bin/darwin-*,**/@github/copilot/sdk/ripgrep/bin/darwin-*/**,**/@vscode/ripgrep-universal/bin/darwin-*,**/@vscode/ripgrep-universal/bin/darwin-*/**,**/@vscodium/os-proxy-resolver-darwin-*,**/@vscodium/os-proxy-resolver-darwin-*/**,**/foundry-local-sdk/prebuilds,**/foundry-local-sdk/prebuilds/darwin-arm64,**/foundry-local-sdk/prebuilds/darwin-arm64/**}',
++		x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node,**/node_modules/@github/copilot-darwin-*/**,**/node_modules/@github/copilot-sdk-darwin-*/**,**/node_modules/@github/copilot/prebuilds/darwin-*/*,**/node_modules/@github/copilot/tgrep/bin/darwin-*/*,**/node_modules/@github/copilot/sdk/tgrep/bin/darwin-*/*,**/node_modules.asar.unpacked/@github/copilot-darwin-*/**,**/node_modules.asar.unpacked/@github/copilot-sdk-darwin-*/**,**/node_modules.asar.unpacked/@github/copilot/prebuilds/darwin-*/*,**/node_modules.asar.unpacked/@github/copilot/tgrep/bin/darwin-*/*,**/node_modules.asar.unpacked/@github/copilot/sdk/tgrep/bin/darwin-*/*,**/extensions/copilot/node_modules/@github/copilot/sdk/prebuilds/darwin-*/*,**/extensions/copilot/node_modules/@github/copilot/sdk/ripgrep/bin/darwin-*/*,**/extensions/copilot/node_modules/@github/copilot/sdk/tgrep/bin/darwin-*/*,**/extensions/copilot/node_modules/@github/copilot/tgrep/bin/darwin-*/*,**/node_modules/@vscode/ripgrep-universal/bin/darwin-*/*,**/node_modules.asar.unpacked/@vscode/ripgrep-universal/bin/darwin-*/*,**/node_modules/@vscodium/os-proxy-resolver-darwin-*/**,**/node_modules.asar.unpacked/@vscodium/os-proxy-resolver-darwin-*/**}',
+ 		filesToSkipComparison: (file: string) => {
+ 			for (const expected of filesToSkip) {
+ 				if (minimatch(file, expected)) {
+diff --git a/build/darwin/verify-macho.ts b/build/darwin/verify-macho.ts
+index 898a6a3f..b02ec3d1 100644
+--- a/build/darwin/verify-macho.ts
++++ b/build/darwin/verify-macho.ts
+@@ -45,8 +45,8 @@ const FILES_TO_SKIP = [
+ 	'**/node_modules/@vscode/ripgrep-universal/bin/darwin-*/**',
+ 	'**/node_modules.asar.unpacked/@vscode/ripgrep-universal/bin/darwin-*/**',
+ 	// OS proxy resolver: universal app has separate x64 and arm64 packages
+-	'**/node_modules/@vscode/os-proxy-resolver-darwin-*/**',
+-	'**/node_modules.asar.unpacked/@vscode/os-proxy-resolver-darwin-*/**',
++	'**/node_modules/@vscodium/os-proxy-resolver-darwin-*/**',
++	'**/node_modules.asar.unpacked/@vscodium/os-proxy-resolver-darwin-*/**',
+ 	// Copilot SDK tgrep prebuilds: single-arch binaries in per-platform directories
+ 	'**/node_modules/@github/copilot/tgrep/bin/darwin-*/**',
+ 	'**/node_modules.asar.unpacked/@github/copilot/tgrep/bin/darwin-*/**',
+diff --git a/build/lib/osProxyResolver.ts b/build/lib/osProxyResolver.ts
+index a514c2cf..8772b8f8 100644
+--- a/build/lib/osProxyResolver.ts
++++ b/build/lib/osProxyResolver.ts
+@@ -9,7 +9,7 @@ import { ensureNpmPackage, type EnsureNpmPackageOptions } from './npmPackage.ts'
+ // The musl variants are never selected as a target, but must be listed so they are excluded from packaging.
+ export const osProxyResolverPlatforms = [
+ 	'darwin-arm64', 'darwin-x64',
+-	'linux-arm-gnueabihf', 'linux-arm64-gnu', 'linux-arm64-musl', 'linux-x64-gnu', 'linux-x64-musl',
++	'linux-arm-gnueabihf', 'linux-arm64-gnu', 'linux-arm64-musl', 'linux-loong64-gnu', 'linux-ppc64le-gnu', 'linux-riscv64-gnu', 'linux-x64-gnu', 'linux-x64-musl',
+ 	'win32-arm64-msvc', 'win32-x64-msvc',
+ ];
+ 
+@@ -33,7 +33,7 @@ function toOSProxyResolverPlatform(platform: string, arch: string): string | und
+ 
+ export function getOSProxyResolverPlatformFiles(platform: string, arch: string, nodeModulesRoot = 'node_modules'): string[] {
+ 	const target = toOSProxyResolverPlatform(platform, arch);
+-	return target ? [path.posix.join(nodeModulesRoot, '@vscode', `os-proxy-resolver-${target}`, '**')] : [];
++	return target ? [path.posix.join(nodeModulesRoot, '@vscodium', `os-proxy-resolver-${target}`, '**')] : [];
+ }
+ 
+ export function getOSProxyResolverExcludeFilter(platform: string, arch: string): string[] {
+@@ -42,13 +42,13 @@ export function getOSProxyResolverExcludeFilter(platform: string, arch: string):
+ 		'**',
+ 		...osProxyResolverPlatforms
+ 			.filter(candidate => candidate !== target)
+-			.map(candidate => `!**/node_modules/@vscode/os-proxy-resolver-${candidate}/**`),
++			.map(candidate => `!**/node_modules/@vscodium/os-proxy-resolver-${candidate}/**`),
+ 	];
+ }
+ 
+ export function ensureOSProxyResolverPlatformPackage(platform: string, arch: string, nodeModulesRoot = 'node_modules', options: EnsureNpmPackageOptions = {}): void {
+ 	const target = toOSProxyResolverPlatform(platform, arch);
+ 	if (target) {
+-		ensureNpmPackage(`@vscode/os-proxy-resolver-${target}`, nodeModulesRoot, options);
++		ensureNpmPackage(`@vscodium/os-proxy-resolver-${target}`, nodeModulesRoot, options);
+ 	}
+ }
+diff --git a/build/lib/test/osProxyResolver.test.ts b/build/lib/test/osProxyResolver.test.ts
+index c6b08412..f52625e3 100644
+--- a/build/lib/test/osProxyResolver.test.ts
++++ b/build/lib/test/osProxyResolver.test.ts
+@@ -16,13 +16,13 @@ import { parsePackageKey, readPnpmLockfile } from '../pnpmLock.ts';
+ suite('osProxyResolver', () => {
+ 	test('selects the target platform package', () => {
+ 		assert.deepStrictEqual(getOSProxyResolverPlatformFiles('darwin', 'x64'), [
+-			'node_modules/@vscode/os-proxy-resolver-darwin-x64/**',
++			'node_modules/@vscodium/os-proxy-resolver-darwin-x64/**',
+ 		]);
+ 		assert.deepStrictEqual(getOSProxyResolverPlatformFiles('linux', 'armhf'), [
+-			'node_modules/@vscode/os-proxy-resolver-linux-arm-gnueabihf/**',
++			'node_modules/@vscodium/os-proxy-resolver-linux-arm-gnueabihf/**',
+ 		]);
+ 		assert.deepStrictEqual(getOSProxyResolverPlatformFiles('win32', 'arm64'), [
+-			'node_modules/@vscode/os-proxy-resolver-win32-arm64-msvc/**',
++			'node_modules/@vscodium/os-proxy-resolver-win32-arm64-msvc/**',
+ 		]);
+ 		assert.deepStrictEqual(getOSProxyResolverPlatformFiles('alpine', 'arm64'), []);
+ 	});
+@@ -32,36 +32,42 @@ suite('osProxyResolver', () => {
+ 			'**',
+ 			...osProxyResolverPlatforms
+ 				.filter(platform => platform !== 'darwin-x64')
+-				.map(platform => `!**/node_modules/@vscode/os-proxy-resolver-${platform}/**`),
++				.map(platform => `!**/node_modules/@vscodium/os-proxy-resolver-${platform}/**`),
+ 		]);
+ 		assert.deepStrictEqual(getOSProxyResolverExcludeFilter('alpine', 'arm64'), [
+ 			'**',
+-			...osProxyResolverPlatforms.map(platform => `!**/node_modules/@vscode/os-proxy-resolver-${platform}/**`),
++			...osProxyResolverPlatforms.map(platform => `!**/node_modules/@vscodium/os-proxy-resolver-${platform}/**`),
+ 		]);
+ 	});
+ 
+ 	test('excludes the musl packages from the glibc linux targets', () => {
+ 		assert.deepStrictEqual(getOSProxyResolverExcludeFilter('linux', 'x64'), [
+ 			'**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-darwin-arm64/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-darwin-x64/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-linux-arm-gnueabihf/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-linux-arm64-gnu/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-linux-arm64-musl/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-linux-x64-musl/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-win32-arm64-msvc/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-win32-x64-msvc/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-darwin-arm64/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-darwin-x64/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-arm-gnueabihf/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-arm64-gnu/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-arm64-musl/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-loong64-gnu/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-ppc64le-gnu/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-riscv64-gnu/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-x64-musl/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-win32-arm64-msvc/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-win32-x64-msvc/**',
+ 		]);
+ 		assert.deepStrictEqual(getOSProxyResolverExcludeFilter('linux', 'arm64'), [
+ 			'**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-darwin-arm64/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-darwin-x64/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-linux-arm-gnueabihf/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-linux-arm64-musl/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-linux-x64-gnu/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-linux-x64-musl/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-win32-arm64-msvc/**',
+-			'!**/node_modules/@vscode/os-proxy-resolver-win32-x64-msvc/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-darwin-arm64/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-darwin-x64/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-arm-gnueabihf/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-arm64-musl/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-loong64-gnu/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-ppc64le-gnu/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-riscv64-gnu/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-x64-gnu/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-linux-x64-musl/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-win32-arm64-msvc/**',
++			'!**/node_modules/@vscodium/os-proxy-resolver-win32-x64-msvc/**',
+ 		]);
+ 	});
+ 
+@@ -94,7 +100,7 @@ suite('osProxyResolver', () => {
+ 				}
+ 			});
+ 
+-			assert(fs.existsSync(path.join(nodeModulesRoot, '@vscode', 'os-proxy-resolver-darwin-x64', 'os_proxy_resolver.node')));
++			assert(fs.existsSync(path.join(nodeModulesRoot, '@vscodium', 'os-proxy-resolver-darwin-x64', 'os_proxy_resolver.node')));
+ 		} finally {
+ 			fs.rmSync(repoRoot, { recursive: true, force: true });
+ 		}
+diff --git a/src/vs/platform/environment/test/node/nativeModules.integrationTest.ts b/src/vs/platform/environment/test/node/nativeModules.integrationTest.ts
+index de250c8d..b2cc56ba 100644
+--- a/src/vs/platform/environment/test/node/nativeModules.integrationTest.ts
++++ b/src/vs/platform/environment/test/node/nativeModules.integrationTest.ts
+@@ -127,8 +127,8 @@ flakySuite('Native Modules (all platforms)', () => {
+ 		assert.ok(windowsCerts.length > 0, testErrorMessage('@vscode/proxy-agent'));
+ 	});
+ 
+-	test('@vscode/os-proxy-resolver', async () => {
+-		const proxyResolver = await import('@vscode/os-proxy-resolver');
++	test('@vscodium/os-proxy-resolver', async () => {
++		const proxyResolver = await import('@vscodium/os-proxy-resolver');
+ 		const proxies = await proxyResolver.resolveProxy('https://example.com/');
+ 		const config = await proxyResolver.readProxyConfig();
+ 		assert.deepStrictEqual({
+@@ -137,7 +137,7 @@ flakySuite('Native Modules (all platforms)', () => {
+ 		}, {
+ 			resolveProxy: true,
+ 			readProxyConfig: true,
+-		}, testErrorMessage('@vscode/os-proxy-resolver'));
++		}, testErrorMessage('@vscodium/os-proxy-resolver'));
+ 	});
+ });
+ 
+diff --git a/src/vs/platform/native/electron-main/nativeHostMainService.ts b/src/vs/platform/native/electron-main/nativeHostMainService.ts
+index 07c9e682..dd3e2a91 100644
+--- a/src/vs/platform/native/electron-main/nativeHostMainService.ts
++++ b/src/vs/platform/native/electron-main/nativeHostMainService.ts
+@@ -1251,12 +1251,12 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
+ 	}
+ 
+ 	async resolveProxyWithPackage(_windowId: number | undefined, url: string): Promise<IOSProxy[]> {
+-		const { resolveProxy } = await import('@vscode/os-proxy-resolver');
++		const { resolveProxy } = await import('@vscodium/os-proxy-resolver');
+ 		return resolveProxy(url);
+ 	}
+ 
+ 	async readProxyConfigWithPackage(_windowId: number | undefined): Promise<IOSProxyConfig> {
+-		const { readProxyConfig } = await import('@vscode/os-proxy-resolver');
++		const { readProxyConfig } = await import('@vscodium/os-proxy-resolver');
+ 		return readProxyConfig();
+ 	}
+ 
+diff --git a/src/vs/workbench/contrib/chat/electron-browser/actions/networkDiagnosticsAction.ts b/src/vs/workbench/contrib/chat/electron-browser/actions/networkDiagnosticsAction.ts
+index d7e0d25e..fc5291cd 100644
+--- a/src/vs/workbench/contrib/chat/electron-browser/actions/networkDiagnosticsAction.ts
++++ b/src/vs/workbench/contrib/chat/electron-browser/actions/networkDiagnosticsAction.ts
+@@ -49,7 +49,7 @@ async function collectNetworkDiagnostics(connectionsService: IAgentHostConnectio
+ }
+ 
+ async function formatLocalProxyConfig(nativeHostService: INativeHostService): Promise<string> {
+-	let output = '## Local OS Proxy Configuration (@vscode/os-proxy-resolver)\n\n';
++	let output = '## Local OS Proxy Configuration (@vscodium/os-proxy-resolver)\n\n';
+ 	try {
+ 		const config = await nativeHostService.readProxyConfigWithPackage();
+ 		output += `- Proxy environment: ${formatEnvironmentProxyConfig(config.environment)}\n`;
+@@ -157,9 +157,9 @@ async function formatEndpointSection(endpoint: IAgentHostNetworkEndpoint, result
+ 	output += `- Proxy: ${result.proxyUrl ?? 'None'}\n`;
+ 	try {
+ 		const proxies = await nativeHostService.resolveProxyWithPackage(result.url);
+-		output += `- Local OS proxy (@vscode/os-proxy-resolver): ${formatProxies(proxies)}\n`;
++		output += `- Local OS proxy (@vscodium/os-proxy-resolver): ${formatProxies(proxies)}\n`;
+ 	} catch (err) {
+-		output += `- Local OS proxy (@vscode/os-proxy-resolver): error: ${err instanceof Error ? err.message : String(err)}\n`;
++		output += `- Local OS proxy (@vscodium/os-proxy-resolver): error: ${err instanceof Error ? err.message : String(err)}\n`;
+ 	}
+ 	output += `- Reachability: ${formatReachability(endpoint, result)}\n\n`;
+ 	return output;

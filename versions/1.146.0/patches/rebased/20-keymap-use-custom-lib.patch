@@ -1,0 +1,77 @@
+diff --git a/build/.moduleignore b/build/.moduleignore
+index f39ddd3a..7dcc5d7e 100644
+--- a/build/.moduleignore
++++ b/build/.moduleignore
+@@ -67,11 +67,11 @@ fsevents/test/**
+ !@vscode/tree-sitter-wasm/wasm/tree-sitter-powershell.wasm
+ !@vscode/tree-sitter-wasm/wasm/tree-sitter-bash.wasm
+ 
+-native-keymap/binding.gyp
+-native-keymap/build/**
+-native-keymap/src/**
+-native-keymap/deps/**
+-!native-keymap/build/Release/*.node
++@vscodium/native-keymap/binding.gyp
++@vscodium/native-keymap/build/**
++@vscodium/native-keymap/src/**
++@vscodium/native-keymap/deps/**
++!@vscodium/native-keymap/build/Release/*.node
+ 
+ native-is-elevated/binding.gyp
+ native-is-elevated/build/**
+diff --git a/eslint.config.js b/eslint.config.js
+index f5d47d3a..69738a68 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -1699,7 +1699,7 @@ export default defineConfig(
+ 						'node:module',
+ 						'node:url',
+ 						'node:v8',
+-						'native-keymap',
++						'@vscodium/native-keymap',
+ 						'net',
+ 						'node-pty',
+ 						'os',
+diff --git a/src/vs/platform/environment/test/node/nativeModules.integrationTest.ts b/src/vs/platform/environment/test/node/nativeModules.integrationTest.ts
+index 4b0ef7f2..90667682 100644
+--- a/src/vs/platform/environment/test/node/nativeModules.integrationTest.ts
++++ b/src/vs/platform/environment/test/node/nativeModules.integrationTest.ts
+@@ -42,12 +42,12 @@ flakySuite('Native Modules (all platforms)', () => {
+ 	});
+ 
+ 	test('native-keymap', async () => {
+-		const keyMap = await import('native-keymap');
+-		assert.ok(typeof keyMap.onDidChangeKeyboardLayout === 'function', testErrorMessage('native-keymap'));
+-		assert.ok(typeof keyMap.getCurrentKeyboardLayout === 'function', testErrorMessage('native-keymap'));
++		const keyMap = await import('@vscodium/native-keymap');
++		assert.ok(typeof keyMap.onDidChangeKeyboardLayout === 'function', testErrorMessage('@vscodium/native-keymap'));
++		assert.ok(typeof keyMap.getCurrentKeyboardLayout === 'function', testErrorMessage('@vscodium/native-keymap'));
+ 
+ 		const result = keyMap.getCurrentKeyboardLayout();
+-		assert.ok(result, testErrorMessage('native-keymap'));
++		assert.ok(result, testErrorMessage('@vscodium/native-keymap'));
+ 	});
+ 
+ 	test('@vscode/native-watchdog', async () => {
+diff --git a/src/vs/platform/keyboardLayout/electron-main/keyboardLayoutMainService.ts b/src/vs/platform/keyboardLayout/electron-main/keyboardLayoutMainService.ts
+index 8950ce21..f31cea62 100644
+--- a/src/vs/platform/keyboardLayout/electron-main/keyboardLayoutMainService.ts
++++ b/src/vs/platform/keyboardLayout/electron-main/keyboardLayoutMainService.ts
+@@ -3,7 +3,7 @@
+  *  Licensed under the MIT License. See License.txt in the project root for license information.
+  *--------------------------------------------------------------------------------------------*/
+ 
+-import type * as nativeKeymap from 'native-keymap';
++import type * as nativeKeymap from '@vscodium/native-keymap';
+ import * as platform from '../../../base/common/platform.js';
+ import { Emitter } from '../../../base/common/event.js';
+ import { Disposable } from '../../../base/common/lifecycle.js';
+@@ -46,7 +46,7 @@ export class KeyboardLayoutMainService extends Disposable implements INativeKeyb
+ 	}
+ 
+ 	private async _doInitialize(): Promise<void> {
+-		const nativeKeymapMod = await import('native-keymap');
++		const nativeKeymapMod = await import('@vscodium/native-keymap');
+ 
+ 		this._keyboardLayoutData = readKeyboardLayoutData(nativeKeymapMod);
+ 		if (!platform.isCI) {

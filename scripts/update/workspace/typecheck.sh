@@ -8,5 +8,5 @@ bash scripts/timed.sh typecheck podman run --rm --userns=keep-id \
   --cpus=4 --memory=8g --memory-swap=12g --security-opt=no-new-privileges --cap-drop=all \
   -v "$project:/project:z" -w "$container_target" \
   -e HOME=/project/cache/home -e GOMEMLIMIT=6GiB -e GOMAXPROCS=4 \
-  "localhost/vscodium-build:node-$(tr -d '\n' < "$project/sources/vscode/.nvmrc")" \
+  "$(bash "$project/scripts/image-tag.sh")" \
   node node_modules/@typescript/native/bin/tsc --project src/tsconfig.json --noEmit --pretty false

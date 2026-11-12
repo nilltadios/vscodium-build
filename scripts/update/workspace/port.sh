@@ -5,7 +5,7 @@
 #   -> replay the previous port patch -> port-rejects.mjs on both reject sets -> merge-files.mjs picks the files
 #   still unresolved -> merge-from.sh (three-way: previous patched tree / previous pristine / new pristine)
 #   -> prune-providers.mjs -> finalize-port-<version>.mjs (per-version conflict picks, if present)
-#   -> port-rules.mjs (recurring resolutions) -> refresh-locks -> port-deps.sh (npm ci of the new lockfile)
+#   -> port-rules.mjs (recurring resolutions) -> refresh-locks -> port-deps.sh (pnpm or npm install of the new lockfile)
 #   -> typecheck -> report; when clean, export-port.sh and a check-patches probe.
 # Mode "vscodium-rebase" (port.json .mode, set by update.sh when the VSCodium commit changes): VSCodium's own
 # patches for this release are used as they are, plus only our local user/ patches; there is no previous port to
@@ -22,7 +22,7 @@ prev=$(jq -r .from port.json)
 prev_dir=$(realpath "$(jq -r .from_dir port.json)")
 next=$(jq -r .vscode_version config.json)
 node_version=$(tr -d '\n' < sources/vscode/.nvmrc)
-image=localhost/vscodium-build:node-$node_version
+image=$(bash scripts/image-tag.sh)
 reference=evidence/patches-$prev-reference/rebased
 out=evidence/port
 mode=$(jq -r '.mode // "port"' port.json)
