@@ -1,0 +1,57 @@
+{
+  "name": "local-theme-defaults",
+  "displayName": "Local theme defaults",
+  "description": "Dark Modern with red accents.",
+  "version": "1.0.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "*"
+  },
+  "contributes": {
+    "configurationDefaults": {
+      "workbench.colorTheme": "Dark Modern",
+      "workbench.colorCustomizations": {
+        "focusBorder": "#FF0000",
+        "button.background": "#FF0000",
+        "button.hoverBackground": "#E60000",
+        "button.foreground": "#000000",
+        "textLink.foreground": "#FF0000",
+        "textLink.activeForeground": "#FF3333",
+        "activityBarBadge.background": "#FF0000",
+        "activityBarBadge.foreground": "#000000",
+        "activityBar.activeBorder": "#FF0000",
+        "tab.activeBorderTop": "#FF0000",
+        "progressBar.background": "#FF0000",
+        "list.highlightForeground": "#FF0000",
+        "list.activeSelectionBackground": "#FF000030",
+        "list.activeSelectionForeground": "#FFFFFF",
+        "list.focusOutline": "#FF0000",
+        "list.dropBackground": "#FF000030",
+        "editor.selectionBackground": "#FF000040",
+        "editor.inactiveSelectionBackground": "#FF000020",
+        "editor.lineHighlightBorder": "#FF000020",
+        "editorCursor.foreground": "#FF0000",
+        "editorWidget.border": "#FF000060",
+        "statusBar.background": "#181818",
+        "statusBar.foreground": "#FFFFFF",
+        "statusBar.noFolderBackground": "#181818",
+        "statusBar.noFolderForeground": "#FFFFFF",
+        "statusBarItem.remoteBackground": "#FF0000",
+        "statusBarItem.remoteForeground": "#000000",
+        "badge.background": "#FF0000",
+        "badge.foreground": "#000000",
+        "inputOption.activeBorder": "#FF0000",
+        "inputOption.activeBackground": "#FF000030",
+        "inputOption.activeForeground": "#FFFFFF",
+        "checkbox.background": "#252525",
+        "checkbox.border": "#FF0000",
+        "panelTitle.activeBorder": "#FF0000",
+        "titleBar.activeBackground": "#181818",
+        "titleBar.activeForeground": "#F0F0F0",
+        "titleBar.inactiveBackground": "#181818",
+        "welcomePage.tileBackground": "#252525",
+        "welcomePage.tileHoverBackground": "#303030"
+      }
+    }
+  }
+}

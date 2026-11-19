@@ -46,6 +46,19 @@ if (!policyFork) {
       .replace(/: NativePolicyWatcherFactory = \((?!_vendorName)(\w+), (\w+), (\w+)\) =>/g, ': NativePolicyWatcherFactory = (_vendorName, $1, $2, $3) =>'));
 }
 
+// 00-vsce-use-custom-lib: keep VSCodium's vsce fork when upstream bumps @vscode/vsce in build/package.json
+// (1.147.0 bumped 3.6.1 -> 4.1.1, rejecting the hunk).
+const vscePatch = path.join(project, 'sources/vscodium/patches/00-vsce-use-custom-lib.patch');
+const vsceFork = fs.existsSync(vscePatch)
+  ? /^\+\s*"@vscodium\/vsce": "([^"]+)"/m.exec(fs.readFileSync(vscePatch, 'utf8'))?.[1] : undefined;
+if (!vsceFork) {
+  console.error(`vsce-fork: no "@vscodium/vsce" version in ${vscePatch}; update this rule.`);
+  process.exitCode = 1;
+} else {
+  rule('vsce-fork', 'build/package.json', s =>
+    s.replace(/^(\s*)"@vscode\/vsce": "[^"]*"(,?)$/m, `$1"@vscodium/vsce": "${vsceFork}"$2`));
+}
+
 // 22-osproxy-use-custom-lib: macOS universal-app globs name the forked proxy resolver (1.141.2, 1.142.0).
 rule('os-proxy-resolver-fork', 'build/darwin/create-universal-app.ts', s =>
   s.replaceAll('@vscode/os-proxy-resolver-darwin-', '@vscodium/os-proxy-resolver-darwin-'));
@@ -109,6 +122,29 @@ if (!fs.existsSync(path.join(root, 'src/vs/platform/agentHost/common/otel/agentH
     s = dropOtelLines(lines.join('\n')).replaceAll(' NullAgentHostOTelService,', '');
     return s.split('\n').filter(l => !/^import \{ type IAgentHostFirstResponseDiagnostic \} from/.test(l)).join('\n');
   });
+}
+
+// VS Code 1.147+: extensions/* (including extensions/copilot and extensions/copilot/chat-lib) are members of
+// the root pnpm workspace. Drop workspace members VSCodium removed (e.g. 52-ext-copilot-remove-it.json) from
+// pnpm-workspace.yaml and build/npm/dirs.ts so lockfile refresh and frozen installs do not look for deleted dirs.
+rule('prune-workspace-packages', 'pnpm-workspace.yaml', s =>
+  s.replace(/^(packages:\n)((?:  - .+\n)+)/m, (_, head, body) =>
+    head + body.split('\n').filter(l => {
+      const m = /^  - (.+)$/.exec(l);
+      return !m || fs.existsSync(path.join(root, m[1]));
+    }).join('\n')));
+rule('prune-workspace-dirs', 'build/npm/dirs.ts', s =>
+  s.replace(/^(export const (?:workspaceMembers|layoutRoots) = \[\n)([\s\S]*?)^(\];)/gm, (_, head, body, tail) =>
+    head + body.split('\n').filter(l => {
+      const m = /^\t'([^']+)',$/.exec(l);
+      return !m || fs.existsSync(path.join(root, m[1]));
+    }).join('\n') + tail));
+
+// Copilot SKU telemetry helper is removed with agentHost/node/copilot/ (52-ext-copilot-remove-it.json);
+// new telemetry events added upstream keep spreading it (1.145.2, 1.146.0, 1.147.0).
+if (!fs.existsSync(path.join(root, 'src/vs/platform/agentHost/node/copilot/copilotSkuTelemetry.ts'))) {
+  rule('copilot-sku-telemetry', 'src/vs/platform/agentHost/node/agentHostTelemetryReporter.ts', s =>
+    s.replace(/^\t*\.\.\.toCopilotTelemetryData\([^)]*\),\n/gm, ''));
 }
 
 // Session comparison metadata is only read by the removed provider agents, so taking upstream's agentService.ts

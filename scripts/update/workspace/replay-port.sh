@@ -7,7 +7,7 @@ patch=$(realpath "${1:?Provide the previous port patch}")
 out=$(realpath -m "${2:?Provide the reject directory}")
 target=$(cat "$project/work/latest-path.txt")
 cd "$target/vscode"
-git apply --reject --ignore-whitespace "$patch" || true
+git apply --reject --ignore-whitespace --exclude='pnpm-lock.yaml' --exclude='*/pnpm-lock.yaml' "$patch" || true
 mkdir -p "$out"
 while IFS= read -r -d '' reject; do
   mkdir -p "$out/$(dirname "$reject")"

@@ -14,7 +14,7 @@ for (const line of input.split('\n')) {
   const reject = /^MISSING (.+)$/.exec(line)?.[1];
   const missing = reject && /^diff a\/(.*?) b\//.exec(fs.readFileSync(reject, 'utf8'))?.[1];
   const file = unresolved ?? missing;
-  if (file && !/(^|\/)package(-lock)?\.json$/.test(file)) files.add(file);
+  if (file && !/(^|\/)(package(-lock)?\.json|pnpm-lock\.yaml)$/.test(file)) files.add(file);
 }
 // No output at all when nothing is left: a blank line would reach merge-from.sh as a file named "".
 if (files.size) console.log([...files].join('\n'));

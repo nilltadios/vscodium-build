@@ -10,7 +10,10 @@ export SHOULD_BUILD_REH=no SHOULD_BUILD_REH_WEB=no SHOULD_BUILD_CLI=no
 export RELEASE_VERSION=$(jq -r .release_version "$project/config.json")
 export MS_TAG=$(jq -r .vscode_version "$project/sources.lock.json")
 export MS_COMMIT=$(jq -r .vscode_commit "$project/sources.lock.json")
-export MAX_OLD_SPACE_SIZE=6144
+export MAX_OLD_SPACE_SIZE="${MAX_OLD_SPACE_SIZE:-4096}"
+# Keep esbuild's Go runtime from ballooning (observed 5.8 GiB RSS+swap during parallel syntax checks on 1.147.0).
+export GOMEMLIMIT="${GOMEMLIMIT:-1536MiB}"
+export GOGC="${GOGC:-50}"
 export npm_config_arch=x64
 # VS Code 1.146+ has no .npmrc: keep VSCodium's 20-keymap .npmrc setting (prebuilt, checksummed native-keymap
 # binary) as the environment variable its install.js reads.

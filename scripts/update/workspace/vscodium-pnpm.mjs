@@ -32,3 +32,15 @@ rewrite('build.sh', [
   ['npm run gulp ', 'pnpm run gulp ', 6],
   ['npm run copy-policy-dto --prefix build', 'pnpm -C build run copy-policy-dto', 3],
 ]);
+// pnpm's isolated linker stores real package files under node_modules/.pnpm/, which ripgrep skips without
+// --hidden. VS Code 1.147 also dropped @vscode/ripgrep in favor of @vscode/ripgrep-universal, so without
+// updating the rg path undo_telemetry.sh hits "No such file or directory" and silently skips scrubbing.
+const rootPkg = JSON.parse(fs.readFileSync(path.join(work, 'vscode/package.json'), 'utf8'));
+const rootDeps = { ...rootPkg.dependencies, ...rootPkg.devDependencies };
+const rgBin = !rootDeps['@vscode/ripgrep'] && rootDeps['@vscode/ripgrep-universal']
+  ? './node_modules/@vscode/ripgrep-universal/bin/linux-x64/rg'
+  : './node_modules/@vscode/ripgrep/bin/rg';
+rewrite('undo_telemetry.sh', [
+  ['    ./node_modules/@vscode/ripgrep/bin/rg --no-ignore -l "${SEARCH}" .',
+    `    ${rgBin} --hidden --no-ignore --glob '!.git/**' -l "\${SEARCH}" .`, 1],
+]);

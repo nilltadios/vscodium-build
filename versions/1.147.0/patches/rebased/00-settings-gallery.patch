@@ -1,0 +1,58 @@
+diff --git a/src/vs/base/common/product.ts b/src/vs/base/common/product.ts
+index 37cbeefd..14967a45 100644
+--- a/src/vs/base/common/product.ts
++++ b/src/vs/base/common/product.ts
+@@ -152,6 +152,8 @@ export interface IProductConfiguration {
+ 		readonly nlsBaseUrl: string;
+ 		readonly accessSKUs?: string[];
+ 		readonly accessScopes?: string[];
++		readonly itemUrl?: string;
++		readonly latestUrlTemplate?: string;
+ 	};
+ 
+ 	readonly agentSdks?: { readonly [packageId: string]: IAgentSdkProductConfig };
+diff --git a/src/vs/platform/extensionManagement/common/extensionGalleryManifestService.ts b/src/vs/platform/extensionManagement/common/extensionGalleryManifestService.ts
+index c297bb2b..e0cacc21 100644
+--- a/src/vs/platform/extensionManagement/common/extensionGalleryManifestService.ts
++++ b/src/vs/platform/extensionManagement/common/extensionGalleryManifestService.ts
+@@ -18,6 +18,7 @@ type ExtensionGalleryConfig = {
+ 	readonly extensionUrlTemplate: string;
+ 	readonly controlUrl: string;
+ 	readonly nlsBaseUrl: string;
++	readonly latestUrlTemplate?: string;
+ };
+ 
+ export class ExtensionGalleryManifestService extends Disposable implements IExtensionGalleryManifestService {
+@@ -50,7 +51,7 @@ export class ExtensionGalleryManifestService extends Disposable implements IExte
+ 				type: ExtensionGalleryResourceType.ExtensionQueryService
+ 			},
+ 			{
+-				id: `${extensionsGallery.serviceUrl}/vscode/{publisher}/{name}/latest`,
++				id: extensionsGallery.latestUrlTemplate ?? `${extensionsGallery.serviceUrl}/vscode/{publisher}/{name}/latest`,
+ 				type: ExtensionGalleryResourceType.ExtensionLatestVersionUri
+ 			},
+ 			{
+diff --git a/src/vs/platform/product/common/product.ts b/src/vs/platform/product/common/product.ts
+index fbc7e51c..1b9211f4 100644
+--- a/src/vs/platform/product/common/product.ts
++++ b/src/vs/platform/product/common/product.ts
+@@ -40,6 +40,19 @@ else if (globalThis._VSCODE_PRODUCT_JSON && globalThis._VSCODE_PACKAGE_JSON) {
+ 	product = globalThis._VSCODE_PRODUCT_JSON as unknown as IProductConfiguration;
+ 	const packageConfiguration = globalThis._VSCODE_PACKAGE_JSON as unknown as IPackageConfiguration;
+ 
++	const { serviceUrl, controlUrl, itemUrl, latestUrlTemplate, extensionUrlTemplate, resourceUrlTemplate } = product.extensionsGallery || {};
++
++	Object.assign(product, {
++		extensionsGallery: {
++			serviceUrl: env['VSCODE_GALLERY_SERVICE_URL'] || serviceUrl,
++			controlUrl: env['VSCODE_GALLERY_CONTROL_URL'] || controlUrl,
++			itemUrl: env['VSCODE_GALLERY_ITEM_URL'] || itemUrl,
++			latestUrlTemplate: env['VSCODE_GALLERY_LATEST_URL_TEMPLATE'] || latestUrlTemplate,
++			extensionUrlTemplate: env['VSCODE_GALLERY_EXTENSION_URL_TEMPLATE'] || extensionUrlTemplate,
++			resourceUrlTemplate: env['VSCODE_GALLERY_RESOURCE_URL_TEMPLATE'] || resourceUrlTemplate,
++		}
++	});
++
+ 	// Running out of sources
+ 	if (env['VSCODE_DEV']) {
+ 		Object.assign(product, {
