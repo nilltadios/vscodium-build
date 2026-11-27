@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+appdir=${APPDIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}
+# Keep the CLI alive until its Electron child exits so the runtime retains
+# the FUSE mount. CLI-only operations such as --version still exit normally.
+export VSCODIUM_APPIMAGE_WAIT_FOR_EXIT=1
+exec "$appdir/usr/share/codium/bin/codium" "$@"

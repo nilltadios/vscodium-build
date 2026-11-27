@@ -1,0 +1,47 @@
+diff --git a/build/.moduleignore b/build/.moduleignore
+index 085b905b..8e76deb8 100644
+--- a/build/.moduleignore
++++ b/build/.moduleignore
+@@ -84,11 +84,11 @@ native-is-elevated/deps/**
+ @vscode/native-watchdog/src/**
+ !@vscode/native-watchdog/build/Release/*.node
+ 
+-@vscode/vsce-sign/**
+-!@vscode/vsce-sign/src/main.d.ts
+-!@vscode/vsce-sign/src/main.js
+-!@vscode/vsce-sign/package.json
+-!@vscode/vsce-sign/bin/**
++@vscodium/vsce-sign/**
++!@vscodium/vsce-sign/src/main.d.ts
++!@vscodium/vsce-sign/src/main.js
++!@vscodium/vsce-sign/package.json
++!@vscodium/vsce-sign/bin/**
+ 
+ windows-foreground-love/binding.gyp
+ windows-foreground-love/build/**
+diff --git a/build/gulpfile.vscode.ts b/build/gulpfile.vscode.ts
+index f5a12c25..1dfd34c0 100644
+--- a/build/gulpfile.vscode.ts
++++ b/build/gulpfile.vscode.ts
+@@ -288,7 +288,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
+ 				// and node-pty blocks the pty host on `ConnectNamedPipe`.
+ 				'**/node-pty/package.json',
+ 				'**/*.wasm',
+-				'**/@vscode/vsce-sign/bin/*',
++				'**/@vscodium/vsce-sign/bin/*',
+ 			], [
+ 				'**/*.mk',
+ 			], [
+diff --git a/src/vs/platform/extensionManagement/node/extensionSignatureVerificationService.ts b/src/vs/platform/extensionManagement/node/extensionSignatureVerificationService.ts
+index 98535c5e..cc37d7b4 100644
+--- a/src/vs/platform/extensionManagement/node/extensionSignatureVerificationService.ts
++++ b/src/vs/platform/extensionManagement/node/extensionSignatureVerificationService.ts
+@@ -67,7 +67,7 @@ export class ExtensionSignatureVerificationService implements IExtensionSignatur
+ 	}
+ 
+ 	private async resolveVsceSign(): Promise<typeof vsceSign> {
+-		const mod = '@vscode/vsce-sign';
++		const mod = '@vscodium/vsce-sign';
+ 		return import(mod);
+ 	}
+ 

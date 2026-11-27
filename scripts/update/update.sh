@@ -93,7 +93,9 @@ if [[ ! -e $ws ]]; then
   for f in Containerfile .containerignore .gitignore appimage-runtime.lock.json appimagetool.lock.json; do
     [[ -e $prev_dir/$f ]] && cp -a "$prev_dir/$f" "$ws/"
   done
-  cp -a --reflink=auto "$prev_dir/assets" "$prev_dir/cache" "$ws/"
+  cp -a --reflink=auto "$prev_dir/assets" "$ws/"
+  # cache/ holds re-downloadable inputs; a disk cleanup may have removed it (2026-11-21), so start empty then.
+  if [[ -d $prev_dir/cache ]]; then cp -a --reflink=auto "$prev_dir/cache" "$ws/"; else mkdir -p "$ws/cache"; fi
   rm -rf "$ws/cache/port-deps"
   # Generic scripts only: no version-named one-offs or backups, and not the legacy 1.139/1.140 helpers.
   mkdir -p "$ws/scripts"

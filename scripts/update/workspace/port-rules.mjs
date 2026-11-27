@@ -144,7 +144,9 @@ rule('prune-workspace-dirs', 'build/npm/dirs.ts', s =>
 // new telemetry events added upstream keep spreading it (1.145.2, 1.146.0, 1.147.0).
 if (!fs.existsSync(path.join(root, 'src/vs/platform/agentHost/node/copilot/copilotSkuTelemetry.ts'))) {
   rule('copilot-sku-telemetry', 'src/vs/platform/agentHost/node/agentHostTelemetryReporter.ts', s =>
-    s.replace(/^\t*\.\.\.toCopilotTelemetryData\([^)]*\),\n/gm, ''));
+    s.replace(/^\t*\.\.\.toCopilotTelemetryData\([^)]*\),\n/gm, '')
+      // 1.148: `toCopilotTelemetryData(ctx) ?? fallback` keeps the fallback.
+      .replace(/toCopilotTelemetryData\([^)]*\) \?\? /g, ''));
 }
 
 // Session comparison metadata is only read by the removed provider agents, so taking upstream's agentService.ts

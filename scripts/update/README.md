@@ -79,6 +79,7 @@ replay can find it.
 | `workspace/test-gui.sh`, `release.sh`, `write-status.mjs` | GUI smoke that polls up to 30 s; one-shot release; version-agnostic STATUS.md |
 | `finalize/finalize-port-<v>.mjs` | per-version conflict picks, kept for replays |
 | `verify-replay.sh` | regression test: replay 1.141.2 → 1.142.0 and compare with the original |
+| `restore-tree.sh versions/<v>` | recreate a finished workspace's patched tree (and its Electron typings) from its `sources/` and `patches/rebased/` when `work/` was cleaned up, so `update.sh` can port from it; checks the patch hashes and that every patch applies |
 
 ## Verification
 
